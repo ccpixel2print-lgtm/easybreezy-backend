@@ -1,0 +1,274 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// Get a free hosted Postgres database in seconds: `npx create-db`
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+
+model ServiceCategory {
+  id           String    @id @default(uuid())
+  name         String    @unique
+  displayOrder Int       @default(0)
+  active       Boolean   @default(true)
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  services     Service[]
+}
+
+model Service {
+  id               String        @id @default(uuid())
+  categoryId       String
+  name             String
+  slug             String        @unique
+  description      String?
+  longDescription  String?
+  imageUrl         String?
+  imageAlt         String?
+  hasSubServices   Boolean       @default(false)
+
+  // Used only when hasSubServices = false (service is directly bookable)
+  pricingType      PricingType?
+  basePrice        Int?          // paise
+  hourlyRate       Int?          // paise
+  visitFee         Int?          // paise
+  durationLabel    String?       // human-readable, e.g. "45–60 min"
+
+  startingPrice    Int?          // paise — lowest price to display on the card
+
+  active           Boolean       @default(true)
+  displayOrder     Int           @default(0)
+  createdAt        DateTime      @default(now())
+  updatedAt        DateTime      @updatedAt
+
+  category         ServiceCategory @relation(fields: [categoryId], references: [id])
+  subServices      SubService[]
+  bookings  Booking[]
+
+}
+
+model SubService {
+  id            String       @id @default(uuid())
+  serviceId     String
+  name          String
+  description   String?
+  imageUrl      String?
+  imageAlt      String?
+
+  pricingType   PricingType
+  basePrice     Int?         // paise (for FIXED)
+  hourlyRate    Int?         // paise (for HOURLY)
+  visitFee      Int?         // paise (for VISITING)
+  originalPrice Int?         // paise — optional strike-through price
+  durationLabel String?      // human-readable, e.g. "3–4 hrs"
+
+  active        Boolean      @default(true)
+  displayOrder  Int          @default(0)
+  createdAt     DateTime     @default(now())
+  updatedAt     DateTime     @updatedAt
+  bookings  Booking[]
+  service       Service      @relation(fields: [serviceId], references: [id])
+}
+
+model ServiceablePincode {
+  id        String   @id @default(uuid())
+  pincode   String   @unique
+  areaName  String
+  city      String   @default("Hyderabad")
+  active    Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model AreaLead {
+  id        String   @id @default(uuid())
+  pincode   String
+  email     String?
+  phone     String?
+  serviceId String?
+  createdAt DateTime @default(now())
+}
+
+
+enum PricingType {
+  FIXED
+  HOURLY
+  VISITING
+}
+
+model User {
+  id             String    @id @default(uuid())
+  fullName       String?
+  email          String    @unique
+  phone          String?
+  role           UserRole  @default(CUSTOMER)
+  passwordHash   String?   // null for customers (OTP-only); set for staff
+  status         String    @default("active") // active | inactive | suspended
+  emailVerifiedAt DateTime?
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+  orders    Order[]
+  bookings  Booking[]
+
+  otpTokens      OtpToken[]
+}
+
+model OtpToken {
+  id         String    @id @default(uuid())
+  userId     String
+  codeHash   String    // store a hash of the OTP, never the raw code
+  purpose    String    @default("login") // login | ... (future)
+  expiresAt  DateTime
+  consumedAt DateTime?
+  attempts   Int       @default(0)
+  createdAt  DateTime  @default(now())
+
+  user       User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+}
+
+enum UserRole {
+  CUSTOMER
+  EMPLOYEE
+  SUPERVISOR
+  ADMIN
+}
+
+model Order {
+  id            String       @id @default(uuid())
+  orderNumber   String       @unique
+  customerId    String
+  status        OrderStatus  @default(PENDING_PAYMENT)
+
+  // snapshot of contact + address captured at checkout
+  contactName   String
+  contactPhone  String
+  contactEmail  String
+  addressLine1  String
+  addressLine2  String?
+  area          String?
+  city          String
+  pincode       String
+
+  // money in paise
+  subtotal      Int
+  taxAmount     Int
+  totalAmount   Int
+
+  placedAt      DateTime     @default(now())
+  createdAt     DateTime     @default(now())
+  updatedAt     DateTime     @updatedAt
+
+  customer      User         @relation(fields: [customerId], references: [id])
+  paymentStatus PaymentStatus @default(PENDING)
+  bookings      Booking[]
+  payments      Payment[]
+
+  @@index([customerId])
+}
+
+model Booking {
+  id                 String        @id @default(uuid())
+  bookingNumber      String        @unique
+  orderId            String
+  customerId         String
+
+  // what was booked (reference + snapshot so history/invoices stay stable)
+  serviceId          String
+  subServiceId       String?
+  itemName           String        // snapshot of service/sub-service name
+  pricingType        PricingType   // snapshot
+  unitPrice          Int           // paise, snapshot at checkout
+  quantity           Int           @default(1) // hours for HOURLY, else 1
+
+  // money (paise)
+  serviceAmount      Int           // unitPrice * quantity (pre-tax)
+  taxAmount          Int
+  totalAmount        Int
+
+  // scheduling snapshot (copied from order-level choice at checkout)
+  scheduledDate      DateTime
+  scheduledTimeWindow String
+
+  // service location snapshot
+  addressLine1       String
+  addressLine2       String?
+  area               String?
+  city               String
+  pincode            String
+
+  status             BookingStatus @default(PENDING_PAYMENT)
+  source             String        @default("web")
+  notes              String?
+
+  createdAt          DateTime      @default(now())
+  updatedAt          DateTime      @updatedAt
+
+  order              Order         @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  customer           User          @relation(fields: [customerId], references: [id])
+  service            Service       @relation(fields: [serviceId], references: [id])
+  subService         SubService?   @relation(fields: [subServiceId], references: [id])
+
+  @@index([orderId])
+  @@index([customerId])
+  @@index([status])
+}
+
+enum OrderStatus {
+  PENDING_PAYMENT
+  PAID
+  PARTIALLY_REFUNDED
+  REFUNDED
+  CANCELLED
+}
+
+enum BookingStatus {
+  PENDING_PAYMENT   // order created, awaiting payment
+  CONFIRMED         // paid, awaiting supervisor assignment
+  ASSIGNED          // employee assigned
+  IN_PROGRESS       // employee started work
+  AWAITING_QUOTE    // visiting: quote raised, awaiting customer approval/payment
+  COMPLETED         // work done + confirmed
+  CANCELLED
+  NO_SHOW
+}
+
+model Payment {
+  id                String        @id @default(uuid())
+  orderId           String
+  provider          String        // "mock" | "cod" | "razorpay"
+  type              String        @default("full") // full | visit_fee | quote_balance (future)
+  amount            Int           // paise
+  status            PaymentStatus @default(PENDING)
+
+  // gateway references (null for cod; populated for razorpay/mock)
+  gatewayOrderId    String?
+  gatewayPaymentId  String?
+  gatewaySignature  String?
+
+  paidAt            DateTime?
+  createdAt         DateTime      @default(now())
+  updatedAt         DateTime      @updatedAt
+
+  order             Order         @relation(fields: [orderId], references: [id], onDelete: Cascade)
+
+  @@index([orderId])
+}
+
+
+enum PaymentStatus {
+  PENDING
+  PAID
+  FAILED
+  REFUNDED
+  PARTIALLY_REFUNDED
+}
