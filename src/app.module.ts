@@ -10,10 +10,11 @@ import { OrdersModule } from './orders/orders.module';
 import { PaymentsModule } from './payments/payments.module';
 import { StaffModule } from './staff/staff.module';
 import { AssignmentsModule } from './assignments/assignments.module';
+import { MailModule } from './mail/mail.module';
 
 @Module({
   imports: [ConfigModule.forRoot({ isGlobal: true }),
-    PrismaModule, CatalogModule, ServiceabilityModule, AuthModule, OrdersModule, PaymentsModule, StaffModule, AssignmentsModule,],
+    PrismaModule, CatalogModule, ServiceabilityModule, AuthModule, OrdersModule, PaymentsModule, StaffModule, AssignmentsModule, MailModule,],
   controllers: [AppController],
   providers: [AppService],
 })

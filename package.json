@@ -32,6 +32,7 @@
     "@prisma/client": "6.19.3",
     "bcrypt": "^6.0.0",
     "reflect-metadata": "^0.2.2",
+    "resend": "^6.19.0",
     "rxjs": "^7.8.1"
   },
   "devDependencies": {

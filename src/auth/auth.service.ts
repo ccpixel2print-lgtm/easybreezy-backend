@@ -3,6 +3,7 @@ import { JwtService } from '@nestjs/jwt';
 import { ConfigService } from '@nestjs/config';
 import { PrismaService } from '../prisma/prisma.service';
 import * as bcrypt from 'bcrypt';
+import { MailService } from '../mail/mail.service';
 
 @Injectable()
 export class AuthService {
@@ -10,6 +11,7 @@ export class AuthService {
     private prisma: PrismaService,
     private jwt: JwtService,
     private config: ConfigService,
+    private mail: MailService,
   ) {}
 
   ping() {
@@ -50,10 +52,12 @@ export class AuthService {
 
     // TODO (later step): send `code` via email provider.
     // For now, log it to the backend console so we can test.
-    console.log(`\n========================================`);
-    console.log(`  OTP for ${email}: ${code}`);
-    console.log(`  (expires in ${expiryMins} minutes)`);
-    console.log(`========================================\n`);
+    //console.log(`\n========================================`);
+    //console.log(`  OTP for ${email}: ${code}`);
+    //console.log(`  (expires in ${expiryMins} minutes)`);
+    //console.log(`========================================\n`);
+    
+    await this.mail.sendOtp(email, code, expiryMins);
 
     return { sent: true, message: 'OTP sent to your email.' };
   }
