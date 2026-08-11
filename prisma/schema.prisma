@@ -117,6 +117,7 @@ model User {
   updatedAt      DateTime  @updatedAt
   orders    Order[]
   bookings  Booking[]
+  assignedBookings   Booking[]  @relation("EmployeeBookings")
 
   otpTokens      OtpToken[]
 }
@@ -209,6 +210,15 @@ model Booking {
   status             BookingStatus @default(PENDING_PAYMENT)
   source             String        @default("web")
   notes              String?
+  
+  // ---- assignment / workflow (Supervisor + Employee) ----
+  assignedEmployeeId  String?
+  assignedAt          DateTime?
+  assignedById        String?     // supervisor/admin who assigned
+  startedAt           DateTime?
+  completedAt         DateTime?
+
+  assignedEmployee    User?       @relation("EmployeeBookings", fields: [assignedEmployeeId], references: [id])
 
   createdAt          DateTime      @default(now())
   updatedAt          DateTime      @updatedAt
@@ -221,6 +231,7 @@ model Booking {
   @@index([orderId])
   @@index([customerId])
   @@index([status])
+  @@index([assignedEmployeeId])
 }
 
 enum OrderStatus {
