@@ -80,7 +80,9 @@ export class OrdersService {
 
     // Load pricing settings once (GST rate + configurable fees).
     const pricing: PricingSettings = await this.settings.getPricing();
-    const gstRate = pricing.gstRate;
+    // GST only applies when enabled; otherwise the effective rate is 0.
+    const gstRate = pricing.gstEnabled ? pricing.gstRate : 0;
+
 
     const scheduledDate = new Date(input.scheduledDate);
     if (isNaN(scheduledDate.getTime())) {

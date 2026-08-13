@@ -27,6 +27,7 @@ export class SettingsService {
     const current = await this.getPricing();
 
     const next: PricingSettings = {
+      gstEnabled: patch.gstEnabled ?? current.gstEnabled,
       gstRate: patch.gstRate ?? current.gstRate,
       platformFee: this.mergeFee(current.platformFee, patch.platformFee),
       convenienceFee: this.mergeFee(current.convenienceFee, patch.convenienceFee),
@@ -47,6 +48,7 @@ export class SettingsService {
 
   private mergePricing(v: Partial<PricingSettings>): PricingSettings {
     return {
+      gstEnabled: v.gstEnabled ?? DEFAULT_PRICING.gstEnabled,
       gstRate: v.gstRate ?? DEFAULT_PRICING.gstRate,
       platformFee: this.mergeFee(DEFAULT_PRICING.platformFee, v.platformFee),
       convenienceFee: this.mergeFee(DEFAULT_PRICING.convenienceFee, v.convenienceFee),
