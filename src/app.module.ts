@@ -14,11 +14,13 @@ import { MailModule } from './mail/mail.module';
 import { EmployeeModule } from './employee/employee.module';
 import { AdminDashboardModule } from './admin-dashboard/admin-dashboard.module';
 import { CatalogAdminModule } from './catalog-admin/catalog-admin.module';
+import { SettingsModule } from './settings/settings.module';
 
 @Module({
   imports: [ConfigModule.forRoot({ isGlobal: true }),
     PrismaModule, CatalogModule, ServiceabilityModule, AuthModule, OrdersModule, PaymentsModule, 
-    StaffModule, AssignmentsModule, MailModule, EmployeeModule, AdminDashboardModule, CatalogAdminModule,],
+    StaffModule, AssignmentsModule, MailModule, EmployeeModule, AdminDashboardModule, 
+    CatalogAdminModule, SettingsModule,],
   controllers: [AppController],
   providers: [AppService],
 })

@@ -163,6 +163,8 @@ model Order {
   // money in paise
   subtotal      Int
   taxAmount     Int
+  platformFee    Int  @default(0)
+  convenienceFee Int  @default(0)
   totalAmount   Int
 
   placedAt      DateTime     @default(now())
@@ -275,11 +277,17 @@ model Payment {
   @@index([orderId])
 }
 
-
 enum PaymentStatus {
   PENDING
   PAID
   FAILED
   REFUNDED
   PARTIALLY_REFUNDED
+}
+
+model AppSetting {
+  group     String   @id          // "pricing" | (future) "hours" | "slots" | "holidays"
+  value     Json                  // typed per-group by the settings service
+  updatedAt DateTime @updatedAt
+  createdAt DateTime @default(now())
 }

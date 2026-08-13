@@ -4,17 +4,19 @@ import { ConfigModule, ConfigService } from '@nestjs/config';
 import { OrdersService } from './orders.service';
 import { OrdersController } from './orders.controller';
 import { PaymentsModule } from '../payments/payments.module';
+import { SettingsModule } from '../settings/settings.module';
 
 @Module({
   imports: [
     JwtModule.registerAsync({
-      imports: [ConfigModule],
+      imports: [ConfigModule,],
       inject: [ConfigService],
       useFactory: (config: ConfigService) => ({
         secret: config.get<string>('JWT_SECRET'),
       }),
     }),
-    PaymentsModule
+    PaymentsModule,
+    SettingsModule,
   ],
   controllers: [OrdersController],
   providers: [OrdersService],

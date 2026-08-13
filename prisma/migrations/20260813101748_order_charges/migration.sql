@@ -1,0 +1,3 @@
+-- AlterTable
+ALTER TABLE "Order" ADD COLUMN     "convenienceFee" INTEGER NOT NULL DEFAULT 0,
+ADD COLUMN     "platformFee" INTEGER NOT NULL DEFAULT 0;

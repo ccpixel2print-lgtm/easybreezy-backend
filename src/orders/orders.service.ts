@@ -2,8 +2,9 @@ import { Injectable, BadRequestException, NotFoundException, ForbiddenException 
 import { PrismaService } from '../prisma/prisma.service';
 import { PricingType } from '@prisma/client';
 import { PaymentsService } from '../payments/payments.service';
+import { SettingsService } from '../settings/settings.service';
+import { PricingSettings, ConfigurableFee } from '../settings/settings.types';
 
-const GST_RATE = 0.18;
 
 interface CheckoutItemInput {
   serviceId: string;
@@ -30,7 +31,17 @@ export class OrdersService {
   constructor(
   private prisma: PrismaService,
   private payments: PaymentsService,
+  private settings: SettingsService,
 ) {}
+
+  /** Resolve a configurable fee to paise, given the service-charge base. */
+  private computeFee(fee: ConfigurableFee, serviceCharge: number): number {
+    if (!fee.enabled || fee.value <= 0) return 0;
+    if (fee.type === 'PERCENT') {
+      return Math.round(serviceCharge * (fee.value / 100));
+    }
+    return fee.value; // FLAT paise
+  }
 
   // Determine the effective unit price (in paise) for a booked item, from DB.
   private resolvePrice(
@@ -66,6 +77,10 @@ export class OrdersService {
     if (!serviceable) {
       throw new BadRequestException('Sorry, we do not serve this pincode yet.');
     }
+
+    // Load pricing settings once (GST rate + configurable fees).
+    const pricing: PricingSettings = await this.settings.getPricing();
+    const gstRate = pricing.gstRate;
 
     const scheduledDate = new Date(input.scheduledDate);
     if (isNaN(scheduledDate.getTime())) {
@@ -127,7 +142,7 @@ export class OrdersService {
 
       const quantity = pricingType === 'HOURLY' ? Math.max(1, item.quantity ?? 1) : 1;
       const serviceAmount = unitPrice * quantity;
-      const taxAmount = Math.round(serviceAmount * GST_RATE);
+      const taxAmount = Math.round(serviceAmount * gstRate);
       const totalAmount = serviceAmount + taxAmount;
 
       bookingRows.push({
@@ -143,9 +158,19 @@ export class OrdersService {
       });
     }
 
+    // ---- Order-level money breakdown ----
+    // Service charge = sum of all booking service amounts (pre-tax, pre-fee).
     const subtotal = bookingRows.reduce((s, b) => s + b.serviceAmount, 0);
-    const taxAmount = bookingRows.reduce((s, b) => s + b.taxAmount, 0);
-    const totalAmount = subtotal + taxAmount;
+
+    // Configurable order-level fees (computed on the service charge).
+    const platformFee = this.computeFee(pricing.platformFee, subtotal);
+    const convenienceFee = this.computeFee(pricing.convenienceFee, subtotal);
+
+    // GST is charged on the full taxable base: service charge + both fees.
+    const taxableBase = subtotal + platformFee + convenienceFee;
+    const taxAmount = Math.round(taxableBase * gstRate);
+
+    const totalAmount = taxableBase + taxAmount;
 
     const orderNumber = this.generateNumber('EB');
 
@@ -165,6 +190,8 @@ export class OrdersService {
           city: input.city,
           pincode: input.pincode,
           subtotal,
+          platformFee,
+          convenienceFee,
           taxAmount,
           totalAmount,
         },
