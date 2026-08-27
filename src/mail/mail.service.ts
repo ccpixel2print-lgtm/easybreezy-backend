@@ -13,7 +13,8 @@ export class MailService {
     const apiKey = this.config.get<string>('RESEND_API_KEY');
     // e.g. "Easy Breezy <noreply@easybreezy.in>"
     this.fromAddress =
-      this.config.get<string>('MAIL_FROM') ?? 'Easy Breezy <onboarding@resend.dev>';
+      this.config.get<string>('MAIL_FROM') ??
+      'Easy Breezy <onboarding@resend.dev>';
 
     this.enabled = !!apiKey;
     this.resend = apiKey ? new Resend(apiKey) : null;
@@ -38,7 +39,9 @@ export class MailService {
   private async send(to: string, subject: string, html: string, text: string) {
     if (!this.enabled || !this.resend) {
       // Fallback for local/dev: log instead of sending.
-      this.logger.log(`\n[MAIL FALLBACK] To: ${to}\nSubject: ${subject}\n${text}\n`);
+      this.logger.log(
+        `\n[MAIL FALLBACK] To: ${to}\nSubject: ${subject}\n${text}\n`,
+      );
       return { sent: false, fallback: true };
     }
 
@@ -52,7 +55,9 @@ export class MailService {
 
     if (error) {
       // Log full error server-side; don't leak details to the caller.
-      this.logger.error(`Resend send failed to ${to}: ${JSON.stringify(error)}`);
+      this.logger.error(
+        `Resend send failed to ${to}: ${JSON.stringify(error)}`,
+      );
       return { sent: false, fallback: false, error: true };
     }
 

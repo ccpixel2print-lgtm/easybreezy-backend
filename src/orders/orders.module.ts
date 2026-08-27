@@ -9,7 +9,7 @@ import { SettingsModule } from '../settings/settings.module';
 @Module({
   imports: [
     JwtModule.registerAsync({
-      imports: [ConfigModule,],
+      imports: [ConfigModule],
       inject: [ConfigService],
       useFactory: (config: ConfigService) => ({
         secret: config.get<string>('JWT_SECRET'),

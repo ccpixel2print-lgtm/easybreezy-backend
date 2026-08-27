@@ -42,7 +42,9 @@ export class AssignmentsService {
       include: {
         service: { select: { name: true, slug: true } },
         subService: { select: { name: true } },
-        customer: { select: { id: true, fullName: true, email: true, phone: true } },
+        customer: {
+          select: { id: true, fullName: true, email: true, phone: true },
+        },
         assignedEmployee: { select: { id: true, fullName: true, phone: true } },
       },
     });
@@ -55,9 +57,13 @@ export class AssignmentsService {
       include: {
         service: { select: { name: true, slug: true } },
         subService: { select: { name: true } },
-        customer: { select: { id: true, fullName: true, email: true, phone: true } },
+        customer: {
+          select: { id: true, fullName: true, email: true, phone: true },
+        },
         assignedEmployee: { select: { id: true, fullName: true, phone: true } },
-        order: { select: { orderNumber: true, status: true, paymentStatus: true } },
+        order: {
+          select: { orderNumber: true, status: true, paymentStatus: true },
+        },
       },
     });
     if (!booking) throw new NotFoundException('Booking not found.');
@@ -69,7 +75,9 @@ export class AssignmentsService {
     if (!employeeId) {
       throw new BadRequestException('employeeId is required.');
     }
-    const emp = await this.prisma.user.findUnique({ where: { id: employeeId } });
+    const emp = await this.prisma.user.findUnique({
+      where: { id: employeeId },
+    });
     if (!emp || emp.role !== 'EMPLOYEE') {
       throw new BadRequestException('Selected user is not an employee.');
     }
@@ -81,7 +89,9 @@ export class AssignmentsService {
 
   // ---- Assign a CONFIRMED booking to an employee ----
   async assign(bookingId: string, employeeId: string, actorId: string) {
-    const booking = await this.prisma.booking.findUnique({ where: { id: bookingId } });
+    const booking = await this.prisma.booking.findUnique({
+      where: { id: bookingId },
+    });
     if (!booking) throw new NotFoundException('Booking not found.');
 
     if (!ASSIGNABLE.includes(booking.status)) {
@@ -110,7 +120,9 @@ export class AssignmentsService {
 
   // ---- Reassign an already-assigned booking to a different employee ----
   async reassign(bookingId: string, employeeId: string, actorId: string) {
-    const booking = await this.prisma.booking.findUnique({ where: { id: bookingId } });
+    const booking = await this.prisma.booking.findUnique({
+      where: { id: bookingId },
+    });
     if (!booking) throw new NotFoundException('Booking not found.');
 
     if (!REASSIGNABLE.includes(booking.status)) {
@@ -122,7 +134,9 @@ export class AssignmentsService {
     await this.ensureAssignableEmployee(employeeId);
 
     if (booking.assignedEmployeeId === employeeId) {
-      throw new BadRequestException('Booking is already assigned to this employee.');
+      throw new BadRequestException(
+        'Booking is already assigned to this employee.',
+      );
     }
 
     const updated = await this.prisma.booking.update({
@@ -145,7 +159,9 @@ export class AssignmentsService {
 
   // ---- Unassign: clear employee, return booking to the queue ----
   async unassign(bookingId: string) {
-    const booking = await this.prisma.booking.findUnique({ where: { id: bookingId } });
+    const booking = await this.prisma.booking.findUnique({
+      where: { id: bookingId },
+    });
     if (!booking) throw new NotFoundException('Booking not found.');
 
     if (!REASSIGNABLE.includes(booking.status)) {

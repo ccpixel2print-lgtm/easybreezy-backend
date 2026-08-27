@@ -1,5 +1,8 @@
 import { Module } from '@nestjs/common';
-import { ServiceabilityController, LeadsController } from './serviceability.controller';
+import {
+  ServiceabilityController,
+  LeadsController,
+} from './serviceability.controller';
 import { ServiceabilityService } from './serviceability.service';
 
 @Module({

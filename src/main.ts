@@ -2,7 +2,7 @@ import { NestFactory } from '@nestjs/core';
 import { AppModule } from './app.module';
 
 async function bootstrap() {
-  const app = await NestFactory.create(AppModule);
+  const app = await NestFactory.create(AppModule, { rawBody: true });
   app.setGlobalPrefix('api/v1');
   app.enableCors({
     origin: process.env.CORS_ORIGINS
@@ -12,4 +12,4 @@ async function bootstrap() {
   }); // allow the frontend to call the API
   await app.listen(process.env.PORT ?? 3001, '0.0.0.0');
 }
-bootstrap();
+void bootstrap();

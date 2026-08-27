@@ -6,10 +6,14 @@ import {
 } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import type {
-  CreateCategoryDto, UpdateCategoryDto,
-  CreateServiceDto, UpdateServiceDto,
-  CreateSubServiceDto, UpdateSubServiceDto,
-  CreatePincodeDto, UpdatePincodeDto,
+  CreateCategoryDto,
+  UpdateCategoryDto,
+  CreateServiceDto,
+  UpdateServiceDto,
+  CreateSubServiceDto,
+  UpdateSubServiceDto,
+  CreatePincodeDto,
+  UpdatePincodeDto,
 } from './catalog-admin.dto';
 
 const PRICING = ['FIXED', 'HOURLY', 'VISITING'];
@@ -29,7 +33,9 @@ export class CatalogAdminService {
   private assertPaise(label: string, val?: number) {
     if (val === undefined || val === null) return;
     if (!Number.isInteger(val) || val < 0) {
-      throw new BadRequestException(`${label} must be a non-negative integer (paise).`);
+      throw new BadRequestException(
+        `${label} must be a non-negative integer (paise).`,
+      );
     }
   }
 
@@ -46,8 +52,11 @@ export class CatalogAdminService {
     const name = (dto.name ?? '').trim();
     if (!name) throw new BadRequestException('Category name is required.');
 
-    const existing = await this.prisma.serviceCategory.findUnique({ where: { name } });
-    if (existing) throw new ConflictException('A category with this name already exists.');
+    const existing = await this.prisma.serviceCategory.findUnique({
+      where: { name },
+    });
+    if (existing)
+      throw new ConflictException('A category with this name already exists.');
 
     return this.prisma.serviceCategory.create({
       data: {
@@ -105,7 +114,10 @@ export class CatalogAdminService {
   async getService(id: string) {
     const service = await this.prisma.service.findUnique({
       where: { id },
-      include: { category: true, subServices: { orderBy: { displayOrder: 'asc' } } },
+      include: {
+        category: true,
+        subServices: { orderBy: { displayOrder: 'asc' } },
+      },
     });
     if (!service) throw new NotFoundException('Service not found.');
     return service;
@@ -114,13 +126,21 @@ export class CatalogAdminService {
   async createService(dto: CreateServiceDto) {
     const name = (dto.name ?? '').trim();
     if (!name) throw new BadRequestException('Service name is required.');
-    if (!dto.categoryId) throw new BadRequestException('categoryId is required.');
+    if (!dto.categoryId)
+      throw new BadRequestException('categoryId is required.');
 
-    const category = await this.prisma.serviceCategory.findUnique({ where: { id: dto.categoryId } });
-    if (!category) throw new BadRequestException('categoryId does not refer to a valid category.');
+    const category = await this.prisma.serviceCategory.findUnique({
+      where: { id: dto.categoryId },
+    });
+    if (!category)
+      throw new BadRequestException(
+        'categoryId does not refer to a valid category.',
+      );
 
     if (dto.pricingType && !PRICING.includes(dto.pricingType)) {
-      throw new BadRequestException('pricingType must be FIXED, HOURLY, or VISITING.');
+      throw new BadRequestException(
+        'pricingType must be FIXED, HOURLY, or VISITING.',
+      );
     }
     this.assertPaise('basePrice', dto.basePrice);
     this.assertPaise('hourlyRate', dto.hourlyRate);
@@ -130,7 +150,8 @@ export class CatalogAdminService {
     const slug = this.slugify(dto.slug || name);
     if (!slug) throw new BadRequestException('Could not derive a valid slug.');
     const slugTaken = await this.prisma.service.findUnique({ where: { slug } });
-    if (slugTaken) throw new ConflictException(`Slug "${slug}" is already in use.`);
+    if (slugTaken)
+      throw new ConflictException(`Slug "${slug}" is already in use.`);
 
     return this.prisma.service.create({
       data: {
@@ -159,7 +180,9 @@ export class CatalogAdminService {
     if (!service) throw new NotFoundException('Service not found.');
 
     if (dto.pricingType && !PRICING.includes(dto.pricingType)) {
-      throw new BadRequestException('pricingType must be FIXED, HOURLY, or VISITING.');
+      throw new BadRequestException(
+        'pricingType must be FIXED, HOURLY, or VISITING.',
+      );
     }
     this.assertPaise('basePrice', dto.basePrice);
     this.assertPaise('hourlyRate', dto.hourlyRate);
@@ -168,9 +191,20 @@ export class CatalogAdminService {
 
     const data: any = {};
     const fields = [
-      'name', 'description', 'longDescription', 'imageUrl', 'imageAlt',
-      'hasSubServices', 'pricingType', 'basePrice', 'hourlyRate', 'visitFee',
-      'durationLabel', 'startingPrice', 'displayOrder', 'active',
+      'name',
+      'description',
+      'longDescription',
+      'imageUrl',
+      'imageAlt',
+      'hasSubServices',
+      'pricingType',
+      'basePrice',
+      'hourlyRate',
+      'visitFee',
+      'durationLabel',
+      'startingPrice',
+      'displayOrder',
+      'active',
     ];
     for (const f of fields) {
       if ((dto as any)[f] !== undefined) data[f] = (dto as any)[f];
@@ -178,16 +212,24 @@ export class CatalogAdminService {
     if (data.name) data.name = data.name.trim();
 
     if (dto.categoryId !== undefined) {
-      const category = await this.prisma.serviceCategory.findUnique({ where: { id: dto.categoryId } });
-      if (!category) throw new BadRequestException('categoryId does not refer to a valid category.');
+      const category = await this.prisma.serviceCategory.findUnique({
+        where: { id: dto.categoryId },
+      });
+      if (!category)
+        throw new BadRequestException(
+          'categoryId does not refer to a valid category.',
+        );
       data.categoryId = dto.categoryId;
     }
 
     if (dto.slug !== undefined) {
       const slug = this.slugify(dto.slug);
       if (!slug) throw new BadRequestException('Invalid slug.');
-      const taken = await this.prisma.service.findFirst({ where: { slug, NOT: { id } } });
-      if (taken) throw new ConflictException(`Slug "${slug}" is already in use.`);
+      const taken = await this.prisma.service.findFirst({
+        where: { slug, NOT: { id } },
+      });
+      if (taken)
+        throw new ConflictException(`Slug "${slug}" is already in use.`);
       data.slug = slug;
     }
 
@@ -198,8 +240,15 @@ export class CatalogAdminService {
   async deleteService(id: string) {
     const service = await this.prisma.service.findUnique({ where: { id } });
     if (!service) throw new NotFoundException('Service not found.');
-    await this.prisma.service.update({ where: { id }, data: { active: false } });
-    return { ok: true, softDeleted: true, message: 'Service deactivated (soft delete).' };
+    await this.prisma.service.update({
+      where: { id },
+      data: { active: false },
+    });
+    return {
+      ok: true,
+      softDeleted: true,
+      message: 'Service deactivated (soft delete).',
+    };
   }
 
   // ============ SUB-SERVICES ============
@@ -209,11 +258,18 @@ export class CatalogAdminService {
     if (!name) throw new BadRequestException('Sub-service name is required.');
     if (!dto.serviceId) throw new BadRequestException('serviceId is required.');
 
-    const parent = await this.prisma.service.findUnique({ where: { id: dto.serviceId } });
-    if (!parent) throw new BadRequestException('serviceId does not refer to a valid service.');
+    const parent = await this.prisma.service.findUnique({
+      where: { id: dto.serviceId },
+    });
+    if (!parent)
+      throw new BadRequestException(
+        'serviceId does not refer to a valid service.',
+      );
 
     if (!dto.pricingType || !PRICING.includes(dto.pricingType)) {
-      throw new BadRequestException('pricingType is required and must be FIXED, HOURLY, or VISITING.');
+      throw new BadRequestException(
+        'pricingType is required and must be FIXED, HOURLY, or VISITING.',
+      );
     }
     this.assertPaise('basePrice', dto.basePrice);
     this.assertPaise('hourlyRate', dto.hourlyRate);
@@ -249,7 +305,9 @@ export class CatalogAdminService {
     if (!sub) throw new NotFoundException('Sub-service not found.');
 
     if (dto.pricingType && !PRICING.includes(dto.pricingType)) {
-      throw new BadRequestException('pricingType must be FIXED, HOURLY, or VISITING.');
+      throw new BadRequestException(
+        'pricingType must be FIXED, HOURLY, or VISITING.',
+      );
     }
     this.assertPaise('basePrice', dto.basePrice);
     this.assertPaise('hourlyRate', dto.hourlyRate);
@@ -257,8 +315,15 @@ export class CatalogAdminService {
 
     const data: any = {};
     const fields = [
-      'name', 'description', 'pricingType', 'basePrice', 'hourlyRate',
-      'visitFee', 'durationLabel', 'displayOrder', 'active',
+      'name',
+      'description',
+      'pricingType',
+      'basePrice',
+      'hourlyRate',
+      'visitFee',
+      'durationLabel',
+      'displayOrder',
+      'active',
     ];
     for (const f of fields) {
       if ((dto as any)[f] !== undefined) data[f] = (dto as any)[f];
@@ -271,14 +336,23 @@ export class CatalogAdminService {
   async deleteSubService(id: string) {
     const sub = await this.prisma.subService.findUnique({ where: { id } });
     if (!sub) throw new NotFoundException('Sub-service not found.');
-    await this.prisma.subService.update({ where: { id }, data: { active: false } });
-    return { ok: true, softDeleted: true, message: 'Sub-service deactivated (soft delete).' };
+    await this.prisma.subService.update({
+      where: { id },
+      data: { active: false },
+    });
+    return {
+      ok: true,
+      softDeleted: true,
+      message: 'Sub-service deactivated (soft delete).',
+    };
   }
 
   // ============ PINCODES ============
 
   listPincodes() {
-    return this.prisma.serviceablePincode.findMany({ orderBy: { pincode: 'asc' } });
+    return this.prisma.serviceablePincode.findMany({
+      orderBy: { pincode: 'asc' },
+    });
   }
 
   async createPincode(dto: CreatePincodeDto) {
@@ -292,7 +366,9 @@ export class CatalogAdminService {
     }
     const city = (dto.city ?? '').trim() || 'Hyderabad';
 
-    const existing = await this.prisma.serviceablePincode.findFirst({ where: { pincode } });
+    const existing = await this.prisma.serviceablePincode.findFirst({
+      where: { pincode },
+    });
     if (existing) throw new ConflictException('This pincode already exists.');
 
     return this.prisma.serviceablePincode.create({
@@ -306,7 +382,9 @@ export class CatalogAdminService {
   }
 
   async updatePincode(id: string, dto: UpdatePincodeDto) {
-    const pin = await this.prisma.serviceablePincode.findUnique({ where: { id } });
+    const pin = await this.prisma.serviceablePincode.findUnique({
+      where: { id },
+    });
     if (!pin) throw new NotFoundException('Pincode not found.');
 
     const data: any = {};
@@ -326,7 +404,9 @@ export class CatalogAdminService {
   }
 
   async deletePincode(id: string) {
-    const pin = await this.prisma.serviceablePincode.findUnique({ where: { id } });
+    const pin = await this.prisma.serviceablePincode.findUnique({
+      where: { id },
+    });
     if (!pin) throw new NotFoundException('Pincode not found.');
     await this.prisma.serviceablePincode.delete({ where: { id } });
     return { ok: true };

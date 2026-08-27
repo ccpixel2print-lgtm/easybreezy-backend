@@ -19,11 +19,11 @@ export interface CreateServiceDto {
   imageAlt?: string;
   hasSubServices?: boolean;
   pricingType?: 'FIXED' | 'HOURLY' | 'VISITING';
-  basePrice?: number;      // paise
-  hourlyRate?: number;     // paise
-  visitFee?: number;       // paise
+  basePrice?: number; // paise
+  hourlyRate?: number; // paise
+  visitFee?: number; // paise
   durationLabel?: string;
-  startingPrice?: number;  // paise
+  startingPrice?: number; // paise
   displayOrder?: number;
   active?: boolean;
 }
@@ -32,7 +32,7 @@ export type UpdateServiceDto = Partial<CreateServiceDto>;
 export interface CreateSubServiceDto {
   serviceId: string;
   name: string;
-  pricingType: 'FIXED' | 'HOURLY' | 'VISITING';   // required
+  pricingType: 'FIXED' | 'HOURLY' | 'VISITING'; // required
   description?: string;
   basePrice?: number;
   hourlyRate?: number;
@@ -41,7 +41,9 @@ export interface CreateSubServiceDto {
   displayOrder?: number;
   active?: boolean;
 }
-export type UpdateSubServiceDto = Partial<Omit<CreateSubServiceDto, 'serviceId'>>;
+export type UpdateSubServiceDto = Partial<
+  Omit<CreateSubServiceDto, 'serviceId'>
+>;
 
 export interface CreatePincodeDto {
   pincode: string;

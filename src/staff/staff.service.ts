@@ -28,7 +28,7 @@ export class StaffService {
     if (!email || !email.includes('@')) {
       throw new BadRequestException('A valid email is required.');
     }
-    if (!STAFF_ROLES.includes(role as any)) {
+    if (!STAFF_ROLES.includes(role)) {
       throw new BadRequestException('Role must be EMPLOYEE or SUPERVISOR.');
     }
     if (password.length < 8) {
@@ -130,7 +130,8 @@ export class StaffService {
     const data: any = {};
     if (dto.fullName !== undefined) {
       const fullName = dto.fullName.trim();
-      if (!fullName) throw new BadRequestException('Full name cannot be empty.');
+      if (!fullName)
+        throw new BadRequestException('Full name cannot be empty.');
       data.fullName = fullName;
     }
     if (dto.phone !== undefined) {
@@ -173,7 +174,9 @@ export class StaffService {
       throw new NotFoundException('Staff member not found.');
     }
     if (target.role === 'SUPERVISOR' && actorRole !== 'ADMIN') {
-      throw new ForbiddenException('Only an admin can reset a supervisor password.');
+      throw new ForbiddenException(
+        'Only an admin can reset a supervisor password.',
+      );
     }
 
     const passwordHash = await bcrypt.hash(newPassword, 10);

@@ -25,7 +25,15 @@ export class AdminDashboardController {
     @Query('page') page?: string,
     @Query('pageSize') pageSize?: string,
   ) {
-    return this.dashboard.listOrders({ status, paymentStatus, search, from, to, page, pageSize });
+    return this.dashboard.listOrders({
+      status,
+      paymentStatus,
+      search,
+      from,
+      to,
+      page,
+      pageSize,
+    });
   }
 
   @Get('customers')

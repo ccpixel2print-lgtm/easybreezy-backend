@@ -21,26 +21,17 @@ export class EmployeeController {
   constructor(private employee: EmployeeService) {}
 
   @Get()
-  list(
-    @CurrentUser() user: { id: string },
-    @Query('status') status?: string,
-  ) {
+  list(@CurrentUser() user: { id: string }, @Query('status') status?: string) {
     return this.employee.listJobs(user.id, status);
   }
 
   @Get(':id')
-  getOne(
-    @CurrentUser() user: { id: string },
-    @Param('id') id: string,
-  ) {
+  getOne(@CurrentUser() user: { id: string }, @Param('id') id: string) {
     return this.employee.getJob(user.id, id);
   }
 
   @Post(':id/start')
-  start(
-    @CurrentUser() user: { id: string },
-    @Param('id') id: string,
-  ) {
+  start(@CurrentUser() user: { id: string }, @Param('id') id: string) {
     return this.employee.startJob(user.id, id);
   }
 

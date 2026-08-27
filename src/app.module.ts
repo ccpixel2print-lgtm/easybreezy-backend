@@ -17,10 +17,22 @@ import { CatalogAdminModule } from './catalog-admin/catalog-admin.module';
 import { SettingsModule } from './settings/settings.module';
 
 @Module({
-  imports: [ConfigModule.forRoot({ isGlobal: true }),
-    PrismaModule, CatalogModule, ServiceabilityModule, AuthModule, OrdersModule, PaymentsModule, 
-    StaffModule, AssignmentsModule, MailModule, EmployeeModule, AdminDashboardModule, 
-    CatalogAdminModule, SettingsModule,],
+  imports: [
+    ConfigModule.forRoot({ isGlobal: true }),
+    PrismaModule,
+    CatalogModule,
+    ServiceabilityModule,
+    AuthModule,
+    OrdersModule,
+    PaymentsModule,
+    StaffModule,
+    AssignmentsModule,
+    MailModule,
+    EmployeeModule,
+    AdminDashboardModule,
+    CatalogAdminModule,
+    SettingsModule,
+  ],
   controllers: [AppController],
   providers: [AppService],
 })

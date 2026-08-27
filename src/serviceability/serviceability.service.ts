@@ -17,7 +17,12 @@ export class ServiceabilityService {
     };
   }
 
-  async captureLead(data: { pincode: string; email?: string; phone?: string; serviceId?: string }) {
+  async captureLead(data: {
+    pincode: string;
+    email?: string;
+    phone?: string;
+    serviceId?: string;
+  }) {
     await this.prisma.areaLead.create({ data });
     return { captured: true };
   }

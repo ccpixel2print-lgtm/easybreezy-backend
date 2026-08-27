@@ -78,10 +78,13 @@ export class AdminDashboardService {
 
     // reshape groupBy arrays into simple { STATUS: count } maps
     const toMap = (rows: any[], key: string) =>
-      rows.reduce((acc, r) => {
-        acc[r[key]] = r._count._all;
-        return acc;
-      }, {} as Record<string, number>);
+      rows.reduce(
+        (acc, r) => {
+          acc[r[key]] = r._count._all;
+          return acc;
+        },
+        {} as Record<string, number>,
+      );
 
     return {
       revenue: {
@@ -118,7 +121,10 @@ export class AdminDashboardService {
     pageSize?: string;
   }) {
     const page = Math.max(1, parseInt(query.page ?? '1', 10) || 1);
-    const pageSize = Math.min(100, Math.max(1, parseInt(query.pageSize ?? '20', 10) || 20));
+    const pageSize = Math.min(
+      100,
+      Math.max(1, parseInt(query.pageSize ?? '20', 10) || 20),
+    );
 
     const where: any = {};
     if (query.status) where.status = query.status;
@@ -186,9 +192,16 @@ export class AdminDashboardService {
   }
 
   // ---- Paginated customer list with order stats ----
-  async listCustomers(query: { search?: string; page?: string; pageSize?: string }) {
+  async listCustomers(query: {
+    search?: string;
+    page?: string;
+    pageSize?: string;
+  }) {
     const page = Math.max(1, parseInt(query.page ?? '1', 10) || 1);
-    const pageSize = Math.min(100, Math.max(1, parseInt(query.pageSize ?? '20', 10) || 20));
+    const pageSize = Math.min(
+      100,
+      Math.max(1, parseInt(query.pageSize ?? '20', 10) || 20),
+    );
 
     const where: any = { role: 'CUSTOMER' };
     if (query.search) {
@@ -227,10 +240,13 @@ export class AdminDashboardService {
           _sum: { totalAmount: true },
         })
       : [];
-    const ltvMap = ltvRows.reduce((acc, r) => {
-      acc[r.customerId] = r._sum.totalAmount ?? 0;
-      return acc;
-    }, {} as Record<string, number>);
+    const ltvMap = ltvRows.reduce(
+      (acc, r) => {
+        acc[r.customerId] = r._sum.totalAmount ?? 0;
+        return acc;
+      },
+      {} as Record<string, number>,
+    );
 
     const data = customers.map((c) => ({
       ...c,
@@ -240,7 +256,12 @@ export class AdminDashboardService {
 
     return {
       data,
-      pagination: { page, pageSize, total, totalPages: Math.ceil(total / pageSize) },
+      pagination: {
+        page,
+        pageSize,
+        total,
+        totalPages: Math.ceil(total / pageSize),
+      },
     };
   }
 }

@@ -33,5 +33,4 @@ export class AuthController {
   me(@CurrentUser() user: { id: string }) {
     return this.authService.getMe(user.id);
   }
-
 }

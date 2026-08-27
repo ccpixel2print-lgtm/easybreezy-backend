@@ -3,14 +3,18 @@ import { JwtModule } from '@nestjs/jwt';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { PaymentsService } from './payments.service';
 import { PaymentsController } from './payments.controller';
+import { SettingsModule } from '../settings/settings.module';
 
 @Module({
   imports: [
     JwtModule.registerAsync({
       imports: [ConfigModule],
       inject: [ConfigService],
-      useFactory: (config: ConfigService) => ({ secret: config.get<string>('JWT_SECRET') }),
+      useFactory: (config: ConfigService) => ({
+        secret: config.get<string>('JWT_SECRET'),
+      }),
     }),
+    SettingsModule,
   ],
   controllers: [PaymentsController],
   providers: [PaymentsService],

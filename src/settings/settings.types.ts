@@ -7,8 +7,8 @@ export interface ConfigurableFee {
 }
 
 export interface PricingSettings {
-  gstEnabled: boolean;          // when false, no GST is charged
-  gstRate: number;              // decimal, e.g. 0.18
+  gstEnabled: boolean; // when false, no GST is charged
+  gstRate: number; // decimal, e.g. 0.18
   platformFee: ConfigurableFee;
   convenienceFee: ConfigurableFee;
 }
@@ -20,4 +20,21 @@ export const DEFAULT_PRICING: PricingSettings = {
   gstRate: 0.18,
   platformFee: { enabled: false, type: 'FLAT', value: 0 },
   convenienceFee: { enabled: false, type: 'FLAT', value: 0 },
+};
+
+// ---- Payments settings group ----
+
+// Known provider names the system can register. 'phonepe' added in this change.
+export const KNOWN_PROVIDERS = ['mock', 'cod', 'phonepe'] as const;
+export type KnownProvider = (typeof KNOWN_PROVIDERS)[number];
+
+export interface PaymentsSettings {
+  activeProvider: string; // which provider is used for new orders
+  enabledProviders: string[]; // providers an admin has turned on
+}
+
+// Defaults reproduce today's behavior: mock active, mock+cod available.
+export const DEFAULT_PAYMENTS: PaymentsSettings = {
+  activeProvider: 'mock',
+  enabledProviders: ['mock', 'cod'],
 };

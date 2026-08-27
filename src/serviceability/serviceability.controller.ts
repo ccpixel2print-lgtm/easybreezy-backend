@@ -17,7 +17,13 @@ export class LeadsController {
 
   @Post()
   capture(
-    @Body() body: { pincode: string; email?: string; phone?: string; serviceId?: string },
+    @Body()
+    body: {
+      pincode: string;
+      email?: string;
+      phone?: string;
+      serviceId?: string;
+    },
   ) {
     return this.serviceabilityService.captureLead(body);
   }

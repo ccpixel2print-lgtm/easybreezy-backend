@@ -1,10 +1,14 @@
-import { Injectable, BadRequestException, NotFoundException, ForbiddenException } from '@nestjs/common';
+import {
+  Injectable,
+  BadRequestException,
+  NotFoundException,
+  ForbiddenException,
+} from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { PricingType } from '@prisma/client';
 import { PaymentsService } from '../payments/payments.service';
 import { SettingsService } from '../settings/settings.service';
 import { PricingSettings, ConfigurableFee } from '../settings/settings.types';
-
 
 interface CheckoutItemInput {
   serviceId: string;
@@ -22,17 +26,17 @@ interface CheckoutInput {
   area?: string;
   city: string;
   pincode: string;
-  scheduledDate: string;        // ISO date string
-  scheduledTimeWindow: string;  // e.g. "10:00 AM – 12:00 PM"
+  scheduledDate: string; // ISO date string
+  scheduledTimeWindow: string; // e.g. "10:00 AM – 12:00 PM"
 }
 
 @Injectable()
 export class OrdersService {
   constructor(
-  private prisma: PrismaService,
-  private payments: PaymentsService,
-  private settings: SettingsService,
-) {}
+    private prisma: PrismaService,
+    private payments: PaymentsService,
+    private settings: SettingsService,
+  ) {}
 
   /** Resolve a configurable fee to paise, given the service-charge base. */
   private computeFee(fee: ConfigurableFee, serviceCharge: number): number {
@@ -66,7 +70,12 @@ export class OrdersService {
     if (!input.items || input.items.length === 0) {
       throw new BadRequestException('Cart is empty.');
     }
-    if (!input.contactName || !input.contactPhone || !input.addressLine1 || !input.pincode) {
+    if (
+      !input.contactName ||
+      !input.contactPhone ||
+      !input.addressLine1 ||
+      !input.pincode
+    ) {
       throw new BadRequestException('Missing required checkout details.');
     }
 
@@ -82,7 +91,6 @@ export class OrdersService {
     const pricing: PricingSettings = await this.settings.getPricing();
     // GST only applies when enabled; otherwise the effective rate is 0.
     const gstRate = pricing.gstEnabled ? pricing.gstRate : 0;
-
 
     const scheduledDate = new Date(input.scheduledDate);
     if (isNaN(scheduledDate.getTime())) {
@@ -123,18 +131,32 @@ export class OrdersService {
           throw new BadRequestException('Selected package is not available.');
         }
         pricingType = sub.pricingType;
-        unitPrice = this.resolvePrice(sub.pricingType, sub.basePrice, sub.hourlyRate, sub.visitFee);
+        unitPrice = this.resolvePrice(
+          sub.pricingType,
+          sub.basePrice,
+          sub.hourlyRate,
+          sub.visitFee,
+        );
         itemName = sub.name;
         subServiceId = sub.id;
       } else {
         if (service.hasSubServices) {
-          throw new BadRequestException(`Please choose a package for ${service.name}.`);
+          throw new BadRequestException(
+            `Please choose a package for ${service.name}.`,
+          );
         }
         if (!service.pricingType) {
-          throw new BadRequestException(`Service ${service.name} is not bookable.`);
+          throw new BadRequestException(
+            `Service ${service.name} is not bookable.`,
+          );
         }
         pricingType = service.pricingType;
-        unitPrice = this.resolvePrice(service.pricingType, service.basePrice, service.hourlyRate, service.visitFee);
+        unitPrice = this.resolvePrice(
+          service.pricingType,
+          service.basePrice,
+          service.hourlyRate,
+          service.visitFee,
+        );
         itemName = service.name;
       }
 
@@ -142,7 +164,8 @@ export class OrdersService {
         throw new BadRequestException(`Pricing unavailable for ${itemName}.`);
       }
 
-      const quantity = pricingType === 'HOURLY' ? Math.max(1, item.quantity ?? 1) : 1;
+      const quantity =
+        pricingType === 'HOURLY' ? Math.max(1, item.quantity ?? 1) : 1;
       const serviceAmount = unitPrice * quantity;
       const taxAmount = Math.round(serviceAmount * gstRate);
       const totalAmount = serviceAmount + taxAmount;
@@ -233,7 +256,6 @@ export class OrdersService {
     const paymentInfo = await this.payments.initiatePayment(order.id);
     const fullOrder = await this.getOrderForCustomer(customerId, order.id);
     return { order: fullOrder, payment: paymentInfo };
-
   }
 
   async listOrders(customerId: string) {
@@ -250,7 +272,8 @@ export class OrdersService {
       include: { bookings: true },
     });
     if (!order) throw new NotFoundException('Order not found.');
-    if (order.customerId !== customerId) throw new ForbiddenException('Not your order.');
+    if (order.customerId !== customerId)
+      throw new ForbiddenException('Not your order.');
     return order;
   }
 

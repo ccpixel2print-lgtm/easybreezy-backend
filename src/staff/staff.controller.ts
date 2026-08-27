@@ -23,10 +23,7 @@ export class StaffController {
   // Admin or Supervisor can create staff (service enforces the fine-grained rule).
   @Roles('ADMIN', 'SUPERVISOR')
   @Post()
-  create(
-    @CurrentUser() user: { role: string },
-    @Body() body: CreateStaffDto,
-  ) {
+  create(@CurrentUser() user: { role: string }, @Body() body: CreateStaffDto) {
     return this.staffService.createStaff(user.role, body);
   }
 

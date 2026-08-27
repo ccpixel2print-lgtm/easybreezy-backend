@@ -1,4 +1,8 @@
-import { Injectable, BadRequestException, UnauthorizedException } from '@nestjs/common';
+import {
+  Injectable,
+  BadRequestException,
+  UnauthorizedException,
+} from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { ConfigService } from '@nestjs/config';
 import { PrismaService } from '../prisma/prisma.service';
@@ -56,7 +60,7 @@ export class AuthService {
     //console.log(`  OTP for ${email}: ${code}`);
     //console.log(`  (expires in ${expiryMins} minutes)`);
     //console.log(`========================================\n`);
-    
+
     await this.mail.sendOtp(email, code, expiryMins);
 
     return { sent: true, message: 'OTP sent to your email.' };
@@ -86,11 +90,15 @@ export class AuthService {
     });
 
     if (!token) {
-      throw new UnauthorizedException('Code expired or not found. Please request a new one.');
+      throw new UnauthorizedException(
+        'Code expired or not found. Please request a new one.',
+      );
     }
 
     if (token.attempts >= 5) {
-      throw new UnauthorizedException('Too many attempts. Please request a new code.');
+      throw new UnauthorizedException(
+        'Too many attempts. Please request a new code.',
+      );
     }
 
     const matches = await bcrypt.compare(code, token.codeHash);
@@ -117,7 +125,12 @@ export class AuthService {
     const accessToken = this.signToken(user.id, user.email, user.role);
     return {
       accessToken,
-      user: { id: user.id, email: user.email, role: user.role, fullName: user.fullName },
+      user: {
+        id: user.id,
+        email: user.email,
+        role: user.role,
+        fullName: user.fullName,
+      },
     };
   }
 
@@ -147,7 +160,12 @@ export class AuthService {
     const accessToken = this.signToken(user.id, user.email, user.role);
     return {
       accessToken,
-      user: { id: user.id, email: user.email, role: user.role, fullName: user.fullName },
+      user: {
+        id: user.id,
+        email: user.email,
+        role: user.role,
+        fullName: user.fullName,
+      },
     };
   }
 
@@ -155,7 +173,14 @@ export class AuthService {
   async getMe(userId: string) {
     const user = await this.prisma.user.findUnique({
       where: { id: userId },
-      select: { id: true, email: true, role: true, fullName: true, phone: true, status: true },
+      select: {
+        id: true,
+        email: true,
+        role: true,
+        fullName: true,
+        phone: true,
+        status: true,
+      },
     });
     if (!user) throw new UnauthorizedException('User not found.');
     return user;

@@ -1,9 +1,15 @@
-import { PaymentProvider, CreatePaymentResult } from '../payment-provider.interface';
+import {
+  PaymentProvider,
+  CreatePaymentResult,
+} from '../payment-provider.interface';
 
 export class MockProvider implements PaymentProvider {
   readonly name = 'mock';
 
-  async createPayment(orderId: string, _amount: number): Promise<CreatePaymentResult> {
+  async createPayment(
+    orderId: string,
+    _amount: number,
+  ): Promise<CreatePaymentResult> {
     // Simulate a gateway order id; confirmation happens via the mock confirm endpoint.
     return {
       provider: this.name,
