@@ -213,14 +213,23 @@ model Booking {
   source             String        @default("web")
   notes              String?
   
-  // ---- assignment / workflow (Supervisor + Employee) ----
+    // ---- assignment / workflow (Supervisor + Employee) ----
   assignedEmployeeId  String?
   assignedAt          DateTime?
   assignedById        String?     // supervisor/admin who assigned
   startedAt           DateTime?
   completedAt         DateTime?
 
+  // ---- Phase 1 completion spine ----
+  acceptedAt          DateTime?   // employee accepted the job
+  rejectedAt          DateTime?   // employee declined
+  rejectionReason     String?     // optional reason on reject
+  workDoneAt          DateTime?   // employee marked work done -> AWAITING_CONFIRMATION
+  confirmedAt         DateTime?   // supervisor/admin confirmed -> COMPLETED
+  confirmedById       String?     // staff user who confirmed
+
   assignedEmployee    User?       @relation("EmployeeBookings", fields: [assignedEmployeeId], references: [id])
+  photos              BookingPhoto[]
 
   createdAt          DateTime      @default(now())
   updatedAt          DateTime      @updatedAt
@@ -236,6 +245,25 @@ model Booking {
   @@index([assignedEmployeeId])
 }
 
+enum BookingPhotoKind {
+  BEFORE
+  AFTER
+}
+
+model BookingPhoto {
+  id         String           @id @default(uuid())
+  bookingId  String
+  kind       BookingPhotoKind
+  objectKey  String           // R2 object key, e.g. "bookings/<id>/before/<uuid>.jpg"
+  url        String           // public URL (R2 base + objectKey)
+  uploadedBy String?          // employee user id who uploaded
+  createdAt  DateTime         @default(now())
+
+  booking    Booking          @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+
+  @@index([bookingId])
+}
+
 enum OrderStatus {
   PENDING_PAYMENT
   PAID
@@ -245,12 +273,15 @@ enum OrderStatus {
 }
 
 enum BookingStatus {
-  PENDING_PAYMENT   // order created, awaiting payment
-  CONFIRMED         // paid, awaiting supervisor assignment
-  ASSIGNED          // employee assigned
-  IN_PROGRESS       // employee started work
-  AWAITING_QUOTE    // visiting: quote raised, awaiting customer approval/payment
-  COMPLETED         // work done + confirmed
+  PENDING_PAYMENT       // order created, awaiting payment
+  CONFIRMED             // paid, awaiting supervisor assignment
+  ASSIGNED              // employee assigned, awaiting employee accept
+  ACCEPTED              // employee accepted the job
+  REJECTED              // employee declined; returns to queue for reassignment
+  IN_PROGRESS           // employee started work
+  AWAITING_CONFIRMATION // employee marked work done; awaiting supervisor/admin close
+  AWAITING_QUOTE        // visiting: quote raised, awaiting customer approval/payment
+  COMPLETED             // supervisor/admin confirmed done (terminal; wallet credits here)
   CANCELLED
   NO_SHOW
 }

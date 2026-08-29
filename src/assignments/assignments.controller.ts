@@ -56,4 +56,9 @@ export class AssignmentsController {
   unassign(@Param('id') id: string) {
     return this.assignments.unassign(id);
   }
+
+  @Post(':id/confirm')
+  confirm(@CurrentUser() user: { id: string }, @Param('id') id: string) {
+    return this.assignments.confirmCompletion(id, user.id);
+  }
 }

@@ -8,7 +8,14 @@ import { PrismaService } from '../prisma/prisma.service';
 
 // statuses a booking may be in for each action
 const ASSIGNABLE = ['CONFIRMED'];
-const REASSIGNABLE = ['ASSIGNED', 'IN_PROGRESS'];
+const REASSIGNABLE = [
+  'ASSIGNED',
+  'ACCEPTED',
+  'IN_PROGRESS',
+  'AWAITING_CONFIRMATION',
+];
+// supervisor/admin can confirm completion only from this state
+const CONFIRMABLE = ['AWAITING_CONFIRMATION'];
 
 @Injectable()
 export class AssignmentsService {
@@ -70,6 +77,10 @@ export class AssignmentsService {
         assignedEmployee: { select: { id: true, fullName: true, phone: true } },
         order: {
           select: { orderNumber: true, status: true, paymentStatus: true },
+        },
+        photos: {
+          select: { id: true, kind: true, url: true, createdAt: true },
+          orderBy: { createdAt: 'asc' },
         },
       },
     });
@@ -152,9 +163,13 @@ export class AssignmentsService {
         assignedEmployeeId: employeeId,
         assignedById: actorId,
         assignedAt: new Date(),
-        // if it was IN_PROGRESS, reset to ASSIGNED for the new employee
+        // fresh start for the new employee: clear all prior workflow progress
         status: 'ASSIGNED',
+        acceptedAt: null,
+        rejectedAt: null,
+        rejectionReason: null,
         startedAt: null,
+        workDoneAt: null,
       },
       include: {
         assignedEmployee: { select: { id: true, fullName: true, phone: true } },
@@ -187,6 +202,39 @@ export class AssignmentsService {
         status: 'CONFIRMED',
       },
     });
+    return updated;
+  }
+  // ---- Supervisor/admin confirm completion: AWAITING_CONFIRMATION -> COMPLETED ----
+  // This is the terminal state and the future wallet-credit hook point.
+  async confirmCompletion(bookingId: string, actorId: string) {
+    const booking = await this.prisma.booking.findUnique({
+      where: { id: bookingId },
+    });
+    if (!booking) throw new NotFoundException('Booking not found.');
+
+    if (!CONFIRMABLE.includes(booking.status)) {
+      throw new BadRequestException(
+        `Only a job AWAITING_CONFIRMATION can be completed. This booking is ${booking.status}.`,
+      );
+    }
+
+    const updated = await this.prisma.booking.update({
+      where: { id: bookingId },
+      data: {
+        status: 'COMPLETED',
+        confirmedAt: new Date(),
+        confirmedById: actorId,
+        completedAt: new Date(),
+      },
+      include: {
+        assignedEmployee: { select: { id: true, fullName: true, phone: true } },
+        service: { select: { name: true } },
+      },
+    });
+
+    // TODO (money model): credit the assigned employee's wallet ledger here,
+    // net-of-GST per the configured revenue split. Hooked in a later phase.
+
     return updated;
   }
 }
