@@ -3,6 +3,7 @@ import {
   BadRequestException,
   NotFoundException,
 } from '@nestjs/common';
+import { Prisma, BookingStatus } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 
 // statuses a booking may be in for each action
@@ -22,10 +23,10 @@ export class AssignmentsService {
     assigned?: string;
     employeeId?: string;
   }) {
-    const where: any = {};
+    const where: Prisma.BookingWhereInput = {};
 
     if (query.status) {
-      where.status = query.status;
+      where.status = query.status as BookingStatus;
     }
     if (query.employeeId) {
       where.assignedEmployeeId = query.employeeId;
@@ -38,7 +39,13 @@ export class AssignmentsService {
 
     return this.prisma.booking.findMany({
       where,
-      orderBy: [{ scheduledDate: 'asc' }, { createdAt: 'asc' }],
+      // soonest-to-attend first: nearest scheduledDate, then earliest slot,
+      // then oldest booking as a stable tie-breaker
+      orderBy: [
+        { scheduledDate: 'asc' },
+        { scheduledTimeWindow: 'asc' },
+        { createdAt: 'asc' },
+      ],
       include: {
         service: { select: { name: true, slug: true } },
         subService: { select: { name: true } },
