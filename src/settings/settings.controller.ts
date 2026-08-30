@@ -1,6 +1,10 @@
 import { Body, Controller, Get, Patch, UseGuards } from '@nestjs/common';
 import { SettingsService } from './settings.service';
-import { PricingSettings, PaymentsSettings } from './settings.types';
+import {
+  PricingSettings,
+  PaymentsSettings,
+  PayoutsSettings,
+} from './settings.types';
 import { JwtGuard } from '../auth/jwt.guard';
 import { RolesGuard } from '../auth/roles.guard';
 import { Roles } from '../auth/roles.decorator';
@@ -39,5 +43,15 @@ export class SettingsController {
   @Patch('payments')
   updatePayments(@Body() body: Partial<PaymentsSettings>) {
     return this.settings.updatePayments(body);
+  }
+
+  @Get('payouts')
+  getPayouts() {
+    return this.settings.getPayouts();
+  }
+
+  @Patch('payouts')
+  updatePayouts(@Body() body: Partial<PayoutsSettings>) {
+    return this.settings.updatePayouts(body);
   }
 }
