@@ -61,4 +61,42 @@ export class AssignmentsController {
   confirm(@CurrentUser() user: { id: string }, @Param('id') id: string) {
     return this.assignments.confirmCompletion(id, user.id);
   }
+
+  // ---- Employee wallet (admin/supervisor view) ----
+  @Get('employees/:employeeId/wallet')
+  employeeWallet(@Param('employeeId') employeeId: string) {
+    return this.assignments.getEmployeeWallet(employeeId);
+  }
+
+  @Get('employees/:employeeId/wallet/ledger')
+  employeeWalletLedger(@Param('employeeId') employeeId: string) {
+    return this.assignments.getEmployeeLedger(employeeId);
+  }
+
+  // ---- Record a payout (debit) ----
+  @Post('employees/:employeeId/wallet/payout')
+  recordPayout(
+    @CurrentUser() user: { id: string },
+    @Param('employeeId') employeeId: string,
+    @Body() body: { amount: number; note?: string },
+  ) {
+    return this.assignments.recordEmployeePayout(
+      employeeId,
+      body.amount,
+      body.note,
+      user.id,
+    );
+  }
+
+  // ---- Set an employee's per-employee payout rate (null => use global) ----
+  @Post('employees/:employeeId/payout-rate')
+  setPayoutRate(
+    @Param('employeeId') employeeId: string,
+    @Body() body: { payoutRatePercent: number | null },
+  ) {
+    return this.assignments.setEmployeePayoutRate(
+      employeeId,
+      body.payoutRatePercent,
+    );
+  }
 }

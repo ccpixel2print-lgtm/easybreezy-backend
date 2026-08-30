@@ -17,12 +17,16 @@ import { RolesGuard } from '../auth/roles.guard';
 import { Roles } from '../auth/roles.decorator';
 import { CurrentUser } from '../auth/current-user.decorator';
 import type { RejectJobDto, WorkDoneDto } from './employee.dto';
+import { WalletService } from '../wallet/wallet.service';
 
 @UseGuards(JwtGuard, RolesGuard)
 @Roles('EMPLOYEE')
 @Controller('employee/jobs')
 export class EmployeeController {
-  constructor(private employee: EmployeeService) {}
+  constructor(
+    private employee: EmployeeService,
+    private wallet: WalletService,
+  ) {}
 
   @Get()
   list(@CurrentUser() user: { id: string }, @Query('status') status?: string) {
@@ -32,6 +36,16 @@ export class EmployeeController {
   @Get(':id')
   getOne(@CurrentUser() user: { id: string }, @Param('id') id: string) {
     return this.employee.getJob(user.id, id);
+  }
+
+  @Get('wallet')
+  walletSummary(@CurrentUser() user: { id: string }) {
+    return this.wallet.getSummary(user.id);
+  }
+
+  @Get('wallet/ledger')
+  walletLedger(@CurrentUser() user: { id: string }) {
+    return this.wallet.getLedger(user.id);
   }
 
   @Post(':id/accept')

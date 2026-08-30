@@ -5,9 +5,11 @@ import { AssignmentsService } from './assignments.service';
 import { AssignmentsController } from './assignments.controller';
 import { JwtGuard } from '../auth/jwt.guard';
 import { RolesGuard } from '../auth/roles.guard';
+import { WalletModule } from '../wallet/wallet.module';
 
 @Module({
   imports: [
+    WalletModule,
     JwtModule.registerAsync({
       imports: [ConfigModule],
       inject: [ConfigService],

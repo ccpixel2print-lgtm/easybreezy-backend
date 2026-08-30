@@ -38,3 +38,11 @@ export const DEFAULT_PAYMENTS: PaymentsSettings = {
   activeProvider: 'mock',
   enabledProviders: ['mock', 'cod'],
 };
+
+export interface PayoutsSettings {
+  defaultPayoutPercent: number; // whole-number percent, e.g. 70 = 70%
+}
+
+export const DEFAULT_PAYOUTS: PayoutsSettings = {
+  defaultPayoutPercent: 70,
+};

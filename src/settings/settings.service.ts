@@ -8,10 +8,13 @@ import {
   PaymentsSettings,
   DEFAULT_PAYMENTS,
   KNOWN_PROVIDERS,
+  PayoutsSettings,
+  DEFAULT_PAYOUTS,
 } from './settings.types';
 
 const PRICING_GROUP = 'pricing';
 const PAYMENTS_GROUP = 'payments';
+const PAYOUTS_GROUP = 'payouts';
 
 @Injectable()
 export class SettingsService {
@@ -82,6 +85,40 @@ export class SettingsService {
       where: { group: PAYMENTS_GROUP },
       create: {
         group: PAYMENTS_GROUP,
+        value: next as unknown as Prisma.InputJsonValue,
+      },
+      update: { value: next as unknown as Prisma.InputJsonValue },
+    });
+
+    return next;
+  }
+
+  // ==================== PAYOUTS ====================
+
+  async getPayouts(): Promise<PayoutsSettings> {
+    const row = await this.prisma.appSetting.findUnique({
+      where: { group: PAYOUTS_GROUP },
+    });
+    if (!row) return DEFAULT_PAYOUTS;
+    return this.mergePayouts(row.value as Partial<PayoutsSettings>);
+  }
+
+  async updatePayouts(
+    patch: Partial<PayoutsSettings>,
+  ): Promise<PayoutsSettings> {
+    const current = await this.getPayouts();
+
+    const next: PayoutsSettings = {
+      defaultPayoutPercent:
+        patch.defaultPayoutPercent ?? current.defaultPayoutPercent,
+    };
+
+    this.validatePayouts(next);
+
+    await this.prisma.appSetting.upsert({
+      where: { group: PAYOUTS_GROUP },
+      create: {
+        group: PAYOUTS_GROUP,
         value: next as unknown as Prisma.InputJsonValue,
       },
       update: { value: next as unknown as Prisma.InputJsonValue },
@@ -170,6 +207,25 @@ export class SettingsService {
     if (!s.enabledProviders.includes(s.activeProvider)) {
       throw new BadRequestException(
         'activeProvider must be one of the enabledProviders.',
+      );
+    }
+  }
+
+  private mergePayouts(v: Partial<PayoutsSettings>): PayoutsSettings {
+    return {
+      defaultPayoutPercent:
+        v.defaultPayoutPercent ?? DEFAULT_PAYOUTS.defaultPayoutPercent,
+    };
+  }
+
+  private validatePayouts(s: PayoutsSettings) {
+    if (
+      !Number.isInteger(s.defaultPayoutPercent) ||
+      s.defaultPayoutPercent < 0 ||
+      s.defaultPayoutPercent > 100
+    ) {
+      throw new BadRequestException(
+        'defaultPayoutPercent must be an integer between 0 and 100.',
       );
     }
   }

@@ -115,9 +115,13 @@ model User {
   emailVerifiedAt DateTime?
   createdAt      DateTime  @default(now())
   updatedAt      DateTime  @updatedAt
-  orders    Order[]
+    orders    Order[]
   bookings  Booking[]
   assignedBookings   Booking[]  @relation("EmployeeBookings")
+
+  // ---- money model (employees only) ----
+  payoutRatePercent  Int?        // per-employee payout % of serviceAmount; null => use global default
+  walletEntries      WalletLedger[]
 
   otpTokens      OtpToken[]
 }
@@ -262,6 +266,32 @@ model BookingPhoto {
   booking    Booking          @relation(fields: [bookingId], references: [id], onDelete: Cascade)
 
   @@index([bookingId])
+}
+
+enum WalletEntryType {
+  JOB_CREDIT   // earned on job completion (positive)
+  PAYOUT       // paid out to the employee (negative)
+  REVERSAL     // refund/cancellation clawback (negative)
+  ADJUSTMENT   // manual admin correction (either sign)
+}
+
+model WalletLedger {
+  id          String          @id @default(uuid())
+  employeeId  String
+  type        WalletEntryType
+  amount      Int             // paise; positive = credit, negative = debit
+
+  // provenance / audit
+  bookingId   String?         // set for JOB_CREDIT and REVERSAL
+  note        String?         // e.g. "Payout 2026-01 via UPI", "Refund clawback"
+  createdById String?         // staff user who recorded a PAYOUT/ADJUSTMENT/REVERSAL
+  createdAt   DateTime        @default(now())
+
+  employee    User            @relation(fields: [employeeId], references: [id])
+
+  @@unique([bookingId, type]) // idempotency: one JOB_CREDIT (and one REVERSAL) per booking
+  @@index([employeeId])
+  @@index([type])
 }
 
 enum OrderStatus {
