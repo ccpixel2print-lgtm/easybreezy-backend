@@ -33,11 +33,6 @@ export class EmployeeController {
     return this.employee.listJobs(user.id, status);
   }
 
-  @Get(':id')
-  getOne(@CurrentUser() user: { id: string }, @Param('id') id: string) {
-    return this.employee.getJob(user.id, id);
-  }
-
   @Get('wallet')
   walletSummary(@CurrentUser() user: { id: string }) {
     return this.wallet.getSummary(user.id);
@@ -46,6 +41,11 @@ export class EmployeeController {
   @Get('wallet/ledger')
   walletLedger(@CurrentUser() user: { id: string }) {
     return this.wallet.getLedger(user.id);
+  }
+
+  @Get(':id')
+  getOne(@CurrentUser() user: { id: string }, @Param('id') id: string) {
+    return this.employee.getJob(user.id, id);
   }
 
   @Post(':id/accept')
