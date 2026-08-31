@@ -31,11 +31,13 @@ export class AuthController {
 
   @UseGuards(JwtGuard)
   @Get('me')
+  me(@CurrentUser() user: { id: string }) {
+    return this.authService.getMe(user.id);
+  }
+
+  @UseGuards(JwtGuard)
   @Patch('me')
   updateMe(@CurrentUser() user: { id: string }, @Body() body: UpdateMeDto) {
     return this.authService.updateMe(user.id, body);
-  }
-  me(@CurrentUser() user: { id: string }) {
-    return this.authService.getMe(user.id);
   }
 }

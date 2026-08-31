@@ -187,11 +187,12 @@ export class AuthService {
   }
 
   // ---- Update current user's own profile ----
-  async updateMe(userId: string, dto: { fullName?: string; phone?: string }) {
+  async updateMe(userId: string, dto?: { fullName?: string; phone?: string }) {
+    const safe = dto ?? {};
     const data: { fullName?: string; phone?: string | null } = {};
 
-    if (dto.fullName !== undefined) {
-      const name = dto.fullName.trim();
+    if (safe.fullName !== undefined) {
+      const name = safe.fullName.trim();
       if (name.length === 0) {
         throw new BadRequestException('Full name cannot be empty.');
       }
@@ -201,8 +202,8 @@ export class AuthService {
       data.fullName = name;
     }
 
-    if (dto.phone !== undefined) {
-      const phone = dto.phone.trim();
+    if (safe.phone !== undefined) {
+      const phone = safe.phone.trim();
       // allow clearing the phone by sending an empty string
       if (phone === '') {
         data.phone = null;
