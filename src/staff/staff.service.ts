@@ -78,7 +78,6 @@ export class StaffService {
     if (role && STAFF_ROLES.includes(role as any)) {
       where.role = role;
     }
-
     return this.prisma.user.findMany({
       where,
       orderBy: [{ role: 'asc' }, { createdAt: 'desc' }],
@@ -90,6 +89,7 @@ export class StaffService {
         role: true,
         status: true,
         createdAt: true,
+        payoutRatePercent: true,
       },
     });
   }
@@ -107,6 +107,7 @@ export class StaffService {
         status: true,
         createdAt: true,
         updatedAt: true,
+        payoutRatePercent: true,
       },
     });
     if (!user || !STAFF_ROLES.includes(user.role as any)) {

@@ -186,6 +186,51 @@ export class AuthService {
     return user;
   }
 
+  // ---- Update current user's own profile ----
+  async updateMe(userId: string, dto: { fullName?: string; phone?: string }) {
+    const data: { fullName?: string; phone?: string | null } = {};
+
+    if (dto.fullName !== undefined) {
+      const name = dto.fullName.trim();
+      if (name.length === 0) {
+        throw new BadRequestException('Full name cannot be empty.');
+      }
+      if (name.length > 120) {
+        throw new BadRequestException('Full name is too long.');
+      }
+      data.fullName = name;
+    }
+
+    if (dto.phone !== undefined) {
+      const phone = dto.phone.trim();
+      // allow clearing the phone by sending an empty string
+      if (phone === '') {
+        data.phone = null;
+      } else {
+        // light validation: 7–15 digits, optional leading +
+        if (!/^\+?\d{7,15}$/.test(phone)) {
+          throw new BadRequestException(
+            'Enter a valid phone number (7–15 digits, optional leading +).',
+          );
+        }
+        data.phone = phone;
+      }
+    }
+
+    if (Object.keys(data).length === 0) {
+      // nothing to change; return current profile unchanged
+      return this.getMe(userId);
+    }
+
+    await this.prisma.user.update({
+      where: { id: userId },
+      data,
+    });
+
+    // return the same shape as getMe for a consistent client contract
+    return this.getMe(userId);
+  }
+
   private signToken(userId: string, email: string, role: string) {
     return this.jwt.sign({ sub: userId, email, role });
   }

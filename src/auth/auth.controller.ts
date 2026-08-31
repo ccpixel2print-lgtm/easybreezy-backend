@@ -1,8 +1,9 @@
 import { UseGuards } from '@nestjs/common';
 import { JwtGuard } from './jwt.guard';
 import { CurrentUser } from './current-user.decorator';
-import { Body, Controller, Get, Post } from '@nestjs/common';
+import { Body, Controller, Get, Patch, Post } from '@nestjs/common';
 import { AuthService } from './auth.service';
+import type { UpdateMeDto } from './auth.dto';
 
 @Controller('auth')
 export class AuthController {
@@ -30,6 +31,10 @@ export class AuthController {
 
   @UseGuards(JwtGuard)
   @Get('me')
+  @Patch('me')
+  updateMe(@CurrentUser() user: { id: string }, @Body() body: UpdateMeDto) {
+    return this.authService.updateMe(user.id, body);
+  }
   me(@CurrentUser() user: { id: string }) {
     return this.authService.getMe(user.id);
   }
