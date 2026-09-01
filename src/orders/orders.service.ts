@@ -10,13 +10,13 @@ import { PaymentsService } from '../payments/payments.service';
 import { SettingsService } from '../settings/settings.service';
 import { PricingSettings, ConfigurableFee } from '../settings/settings.types';
 
-interface CheckoutItemInput {
+export interface CheckoutItemInput {
   serviceId: string;
   subServiceId?: string | null;
   quantity?: number; // hours for HOURLY, else defaults to 1
 }
 
-interface CheckoutInput {
+export interface CheckoutInput {
   items: CheckoutItemInput[];
   contactName: string;
   contactPhone: string;

@@ -3,12 +3,28 @@ import { AdminDashboardService } from './admin-dashboard.service';
 import { JwtGuard } from '../auth/jwt.guard';
 import { RolesGuard } from '../auth/roles.guard';
 import { Roles } from '../auth/roles.decorator';
+import { Body, Param, Post } from '@nestjs/common'; // add to existing imports
+import { PaymentsService } from '../payments/payments.service';
+import { CurrentUser } from '../auth/current-user.decorator';
 
 @UseGuards(JwtGuard, RolesGuard)
 @Roles('ADMIN', 'SUPERVISOR')
 @Controller('admin')
 export class AdminDashboardController {
-  constructor(private dashboard: AdminDashboardService) {}
+  constructor(
+    private dashboard: AdminDashboardService,
+    private payments: PaymentsService,
+  ) {}
+
+  @Roles('ADMIN') // method-level: refunds are admin-only
+  @Post('orders/:id/refund')
+  refundOrder(
+    @CurrentUser() user: { id: string },
+    @Param('id') id: string,
+    @Body('reason') reason?: string,
+  ) {
+    return this.payments.refundOrder(id, user.id, reason);
+  }
 
   @Get('dashboard')
   getDashboard() {
@@ -43,5 +59,14 @@ export class AdminDashboardController {
     @Query('pageSize') pageSize?: string,
   ) {
     return this.dashboard.listCustomers({ search, page, pageSize });
+  }
+
+  @Roles('ADMIN')
+  @Post('orders/expire-stale')
+  expireStale(@Query('minutes') minutes?: string) {
+    const mins = minutes ? Number(minutes) : 60;
+    return this.payments.expireStalePendingOrders(
+      Number.isFinite(mins) && mins > 0 ? mins : 60,
+    );
   }
 }

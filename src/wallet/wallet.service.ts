@@ -167,21 +167,25 @@ export class WalletService {
    * Stored as a negative amount tied to the booking.
    * Idempotent per booking via @@unique([bookingId, type]).
    */
-  async reverseForBooking(params: {
-    employeeId: string;
-    bookingId: string;
-    amount: number; // positive paise to claw back
-    note?: string;
-    createdById: string;
-  }) {
+  async reverseForBooking(
+    params: {
+      employeeId: string;
+      bookingId: string;
+      amount: number; // positive paise to claw back
+      note?: string;
+      createdById: string;
+    },
+    tx?: Tx,
+  ) {
     const { employeeId, bookingId, amount, note, createdById } = params;
     if (!Number.isInteger(amount) || amount <= 0) {
       throw new BadRequestException(
         'Reversal amount must be a positive integer (paise).',
       );
     }
+    const db = tx ?? this.prisma; // enlist in caller's transaction if given
     try {
-      return await this.prisma.walletLedger.create({
+      return await db.walletLedger.create({
         data: {
           employeeId,
           type: 'REVERSAL',
