@@ -5,6 +5,7 @@ import { AdminDashboardService } from './admin-dashboard.service';
 import { AdminDashboardController } from './admin-dashboard.controller';
 import { JwtGuard } from '../auth/jwt.guard';
 import { RolesGuard } from '../auth/roles.guard';
+import { PaymentsModule } from '../payments/payments.module';
 
 @Module({
   imports: [
@@ -15,6 +16,7 @@ import { RolesGuard } from '../auth/roles.guard';
         secret: config.get<string>('JWT_SECRET'),
       }),
     }),
+    PaymentsModule,
   ],
   controllers: [AdminDashboardController],
   providers: [AdminDashboardService, JwtGuard, RolesGuard],

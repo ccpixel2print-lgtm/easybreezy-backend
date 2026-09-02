@@ -4,6 +4,7 @@ import { ConfigModule, ConfigService } from '@nestjs/config';
 import { PaymentsService } from './payments.service';
 import { PaymentsController } from './payments.controller';
 import { SettingsModule } from '../settings/settings.module';
+import { WalletModule } from '../wallet/wallet.module';
 
 @Module({
   imports: [
@@ -15,6 +16,7 @@ import { SettingsModule } from '../settings/settings.module';
       }),
     }),
     SettingsModule,
+    WalletModule,
   ],
   controllers: [PaymentsController],
   providers: [PaymentsService],
