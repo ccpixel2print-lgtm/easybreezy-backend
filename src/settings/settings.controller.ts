@@ -4,6 +4,7 @@ import {
   PricingSettings,
   PaymentsSettings,
   PayoutsSettings,
+  NotificationsSettings,
 } from './settings.types';
 import { JwtGuard } from '../auth/jwt.guard';
 import { RolesGuard } from '../auth/roles.guard';
@@ -53,5 +54,15 @@ export class SettingsController {
   @Patch('payouts')
   updatePayouts(@Body() body: Partial<PayoutsSettings>) {
     return this.settings.updatePayouts(body);
+  }
+
+  @Get('notifications')
+  getNotifications() {
+    return this.settings.getNotifications();
+  }
+
+  @Patch('notifications')
+  updateNotifications(@Body() body: Partial<NotificationsSettings>) {
+    return this.settings.updateNotifications(body);
   }
 }

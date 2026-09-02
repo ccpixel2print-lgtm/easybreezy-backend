@@ -6,10 +6,12 @@ import { AssignmentsController } from './assignments.controller';
 import { JwtGuard } from '../auth/jwt.guard';
 import { RolesGuard } from '../auth/roles.guard';
 import { WalletModule } from '../wallet/wallet.module';
+import { NotificationsModule } from '../notifications/notifications.module';
 
 @Module({
   imports: [
     WalletModule,
+    NotificationsModule,
     JwtModule.registerAsync({
       imports: [ConfigModule],
       inject: [ConfigService],

@@ -10,11 +10,14 @@ import {
   KNOWN_PROVIDERS,
   PayoutsSettings,
   DEFAULT_PAYOUTS,
+  NotificationsSettings,
+  DEFAULT_NOTIFICATIONS,
 } from './settings.types';
 
 const PRICING_GROUP = 'pricing';
 const PAYMENTS_GROUP = 'payments';
 const PAYOUTS_GROUP = 'payouts';
+const NOTIFICATIONS_GROUP = 'notifications';
 
 @Injectable()
 export class SettingsService {
@@ -127,6 +130,39 @@ export class SettingsService {
     return next;
   }
 
+  // ==================== NOTIFICATIONS ====================
+
+  async getNotifications(): Promise<NotificationsSettings> {
+    const row = await this.prisma.appSetting.findUnique({
+      where: { group: NOTIFICATIONS_GROUP },
+    });
+    if (!row) return DEFAULT_NOTIFICATIONS;
+    return this.mergeNotifications(row.value as Partial<NotificationsSettings>);
+  }
+
+  async updateNotifications(
+    patch: Partial<NotificationsSettings>,
+  ): Promise<NotificationsSettings> {
+    const current = await this.getNotifications();
+
+    const next: NotificationsSettings = {
+      ccEmail: patch.ccEmail ?? current.ccEmail,
+    };
+
+    this.validateNotifications(next);
+
+    await this.prisma.appSetting.upsert({
+      where: { group: NOTIFICATIONS_GROUP },
+      create: {
+        group: NOTIFICATIONS_GROUP,
+        value: next as unknown as Prisma.InputJsonValue,
+      },
+      update: { value: next as unknown as Prisma.InputJsonValue },
+    });
+
+    return next;
+  }
+
   // ==================== HELPERS ====================
 
   private mergePricing(v: Partial<PricingSettings>): PricingSettings {
@@ -227,6 +263,21 @@ export class SettingsService {
       throw new BadRequestException(
         'defaultPayoutPercent must be an integer between 0 and 100.',
       );
+    }
+  }
+
+  private mergeNotifications(
+    v: Partial<NotificationsSettings>,
+  ): NotificationsSettings {
+    return {
+      ccEmail: v.ccEmail ?? DEFAULT_NOTIFICATIONS.ccEmail,
+    };
+  }
+
+  private validateNotifications(s: NotificationsSettings) {
+    // Empty is allowed (feature off). If set, must look like an email.
+    if (s.ccEmail && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(s.ccEmail)) {
+      throw new BadRequestException('ccEmail must be a valid email address.');
     }
   }
 }

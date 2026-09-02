@@ -36,11 +36,17 @@ export class MailService {
   }
 
   // ---- Generic send with graceful fallback ----
-  private async send(to: string, subject: string, html: string, text: string) {
+  async send(
+    to: string,
+    subject: string,
+    html: string,
+    text: string,
+    bcc?: string,
+  ) {
     if (!this.enabled || !this.resend) {
       // Fallback for local/dev: log instead of sending.
       this.logger.log(
-        `\n[MAIL FALLBACK] To: ${to}\nSubject: ${subject}\n${text}\n`,
+        `\n[MAIL FALLBACK] To: ${to}${bcc ? ` (bcc: ${bcc})` : ''}\nSubject: ${subject}\n${text}\n`,
       );
       return { sent: false, fallback: true };
     }
@@ -48,13 +54,13 @@ export class MailService {
     const { data, error } = await this.resend.emails.send({
       from: this.fromAddress,
       to: [to],
+      ...(bcc ? { bcc: [bcc] } : {}),
       subject,
       html,
       text,
     });
 
     if (error) {
-      // Log full error server-side; don't leak details to the caller.
       this.logger.error(
         `Resend send failed to ${to}: ${JSON.stringify(error)}`,
       );

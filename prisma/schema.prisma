@@ -124,6 +124,7 @@ model User {
   walletEntries      WalletLedger[]
 
   otpTokens      OtpToken[]
+  notifications      Notification[]
 }
 
 model OtpToken {
@@ -351,4 +352,41 @@ model AppSetting {
   value     Json                  // typed per-group by the settings service
   updatedAt DateTime @updatedAt
   createdAt DateTime @default(now())
+}
+
+enum NotificationType {
+  // Customer
+  BOOKING_CONFIRMED
+  BOOKING_CANCELLED
+  PAYMENT_RECEIVED
+  PAYMENT_REJECTED
+  PAYMENT_CANCELLED
+  TECHNICIAN_ASSIGNED
+  WORK_COMPLETED
+  // Employee
+  WORK_ASSIGNED
+  AWAITING_SUPERVISOR_CONFIRMATION
+  JOB_COMPLETED
+  PAYOUT_RECEIVED
+  // Supervisor / Admin
+  EMPLOYEE_ACCEPTED
+  EMPLOYEE_REJECTED
+  WORK_DONE
+  BOOKING_RECEIVED
+}
+
+model Notification {
+  id        String           @id @default(uuid())
+  userId    String
+  type      NotificationType
+  title     String
+  body      String
+  data      Json?            // deep-link ids, e.g. { bookingId, orderId }
+  readAt    DateTime?
+  createdAt DateTime         @default(now())
+
+  user      User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, createdAt])
+  @@index([userId, readAt])
 }

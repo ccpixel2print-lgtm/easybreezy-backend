@@ -15,6 +15,7 @@ import { EmployeeModule } from './employee/employee.module';
 import { AdminDashboardModule } from './admin-dashboard/admin-dashboard.module';
 import { CatalogAdminModule } from './catalog-admin/catalog-admin.module';
 import { SettingsModule } from './settings/settings.module';
+import { NotificationsModule } from './notifications/notifications.module';
 
 @Module({
   imports: [
@@ -32,6 +33,7 @@ import { SettingsModule } from './settings/settings.module';
     AdminDashboardModule,
     CatalogAdminModule,
     SettingsModule,
+    NotificationsModule,
   ],
   controllers: [AppController],
   providers: [AppService],

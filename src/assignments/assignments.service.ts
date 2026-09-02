@@ -6,6 +6,7 @@ import {
 import { Prisma, BookingStatus } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { WalletService } from '../wallet/wallet.service';
+import { NotificationsService } from '../notifications/notifications.service';
 
 // statuses a booking may be in for each action
 const ASSIGNABLE = ['CONFIRMED'];
@@ -23,6 +24,7 @@ export class AssignmentsService {
   constructor(
     private prisma: PrismaService,
     private wallet: WalletService,
+    private notifications: NotificationsService,
   ) {}
 
   // ---- Supervisor/admin booking list with filters ----
@@ -109,6 +111,24 @@ export class AssignmentsService {
     return emp;
   }
 
+  private assignedEmailHtml(
+    customerName: string | null,
+    techName: string,
+    serviceName: string,
+    date: string,
+    slot: string,
+  ): string {
+    return `
+    <div style="font-family:Arial,Helvetica,sans-serif;max-width:480px;margin:0 auto;padding:24px;color:#1f2937;">
+      <h2 style="color:#0d9488;margin:0 0 16px;">Easy Breezy</h2>
+      <p style="font-size:15px;line-height:1.5;">Hi ${customerName ?? 'there'},</p>
+      <p style="font-size:15px;line-height:1.5;"><strong>${techName}</strong> has been assigned to your <strong>${serviceName}</strong> booking.</p>
+      <p style="font-size:15px;line-height:1.5;">Scheduled for <strong>${date}</strong> during <strong>${slot}</strong>.</p>
+      <hr style="border:none;border-top:1px solid #e5e7eb;margin:24px 0;" />
+      <p style="font-size:12px;color:#9ca3af;">Easy Breezy · Home services in Hyderabad</p>
+    </div>`;
+  }
+
   // ---- Assign a CONFIRMED booking to an employee ----
   async assign(bookingId: string, employeeId: string, actorId: string) {
     const booking = await this.prisma.booking.findUnique({
@@ -135,8 +155,36 @@ export class AssignmentsService {
       include: {
         assignedEmployee: { select: { id: true, fullName: true, phone: true } },
         service: { select: { name: true } },
+        customer: { select: { id: true, fullName: true, email: true } },
       },
     });
+
+    // --- Notify the customer: a technician has been assigned (post-commit,
+    // best-effort; never blocks or rolls back the assignment). ---
+    const techName = updated.assignedEmployee?.fullName ?? 'a technician';
+    const when = updated.scheduledDate.toISOString().slice(0, 10);
+    void this.notifications.notify({
+      userId: updated.customerId,
+      type: 'TECHNICIAN_ASSIGNED',
+      title: 'A technician has been assigned',
+      body: `${techName} will attend your ${updated.service.name} booking on ${when} (${updated.scheduledTimeWindow}).`,
+      data: { bookingId: updated.id, orderId: updated.orderId },
+      email: updated.customer?.email
+        ? {
+            to: updated.customer.email,
+            subject: 'Your Easy Breezy technician is assigned',
+            html: this.assignedEmailHtml(
+              updated.customer.fullName,
+              techName,
+              updated.service.name,
+              when,
+              updated.scheduledTimeWindow,
+            ),
+            text: `Hi ${updated.customer.fullName ?? 'there'}, ${techName} will attend your ${updated.service.name} booking on ${when} (${updated.scheduledTimeWindow}).`,
+          }
+        : undefined,
+    });
+
     return updated;
   }
 

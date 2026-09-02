@@ -46,3 +46,15 @@ export interface PayoutsSettings {
 export const DEFAULT_PAYOUTS: PayoutsSettings = {
   defaultPayoutPercent: 70,
 };
+
+// ---- Notifications settings group ----
+
+export interface NotificationsSettings {
+  // Optional internal address BCC'd on every customer/employee email.
+  // Empty string = disabled.
+  ccEmail: string;
+}
+
+export const DEFAULT_NOTIFICATIONS: NotificationsSettings = {
+  ccEmail: '',
+};
