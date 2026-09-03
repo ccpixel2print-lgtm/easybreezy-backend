@@ -180,6 +180,7 @@ export class AdminDashboardService {
           totalAmount: true,
           contactName: true,
           contactPhone: true,
+          contactEmail: true,
           city: true,
           pincode: true,
           placedAt: true,
