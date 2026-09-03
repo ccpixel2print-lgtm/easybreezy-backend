@@ -1,4 +1,5 @@
 import { Injectable } from '@nestjs/common';
+import { Prisma } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 
 @Injectable()
@@ -76,15 +77,17 @@ export class AdminDashboardService {
       }),
     ]);
 
-    // reshape groupBy arrays into simple { STATUS: count } maps
-    const toMap = (rows: any[], key: string) =>
-      rows.reduce(
-        (acc, r) => {
-          acc[r[key]] = r._count._all;
-          return acc;
-        },
-        {} as Record<string, number>,
-      );
+    // reshape groupBy arrays into simple { KEY: count } maps
+    const toMap = <T extends { _count: { _all: number } }>(
+      rows: T[],
+      key: keyof T,
+    ): Record<string, number> => {
+      const acc: Record<string, number> = {};
+      for (const r of rows) {
+        acc[String(r[key])] = r._count._all;
+      }
+      return acc;
+    };
 
     return {
       revenue: {
@@ -126,23 +129,28 @@ export class AdminDashboardService {
       Math.max(1, parseInt(query.pageSize ?? '20', 10) || 20),
     );
 
-    const where: any = {};
-    if (query.status) where.status = query.status;
-    if (query.paymentStatus) where.paymentStatus = query.paymentStatus;
+    const where: Prisma.OrderWhereInput = {};
+    if (query.status)
+      where.status = query.status as Prisma.OrderWhereInput['status'];
+    if (query.paymentStatus) {
+      where.paymentStatus =
+        query.paymentStatus as Prisma.OrderWhereInput['paymentStatus'];
+    }
 
     if (query.from || query.to) {
-      where.placedAt = {};
+      const placedAt: Prisma.DateTimeFilter = {};
       if (query.from) {
         const f = new Date(query.from);
-        if (!isNaN(f.getTime())) where.placedAt.gte = f;
+        if (!isNaN(f.getTime())) placedAt.gte = f;
       }
       if (query.to) {
         const t = new Date(query.to);
         if (!isNaN(t.getTime())) {
           t.setHours(23, 59, 59, 999);
-          where.placedAt.lte = t;
+          placedAt.lte = t;
         }
       }
+      where.placedAt = placedAt;
     }
 
     if (query.search) {
@@ -203,7 +211,7 @@ export class AdminDashboardService {
       Math.max(1, parseInt(query.pageSize ?? '20', 10) || 20),
     );
 
-    const where: any = { role: 'CUSTOMER' };
+    const where: Prisma.UserWhereInput = { role: 'CUSTOMER' };
     if (query.search) {
       const s = query.search.trim();
       where.OR = [
@@ -248,8 +256,30 @@ export class AdminDashboardService {
       {} as Record<string, number>,
     );
 
+    // Backfill display name/phone from each customer's most recent order
+    // contact snapshot when the User row itself is blank (legacy OTP customers).
+    const contactRows = ids.length
+      ? await this.prisma.order.findMany({
+          where: { customerId: { in: ids } },
+          orderBy: { placedAt: 'desc' },
+          select: { customerId: true, contactName: true, contactPhone: true },
+        })
+      : [];
+    const contactMap: Record<string, { name?: string; phone?: string }> = {};
+    for (const r of contactRows) {
+      // findMany is newest-first; keep only the first (latest) per customer.
+      if (!contactMap[r.customerId]) {
+        contactMap[r.customerId] = {
+          name: r.contactName ?? undefined,
+          phone: r.contactPhone ?? undefined,
+        };
+      }
+    }
+
     const data = customers.map((c) => ({
       ...c,
+      fullName: c.fullName ?? contactMap[c.id]?.name ?? null,
+      phone: c.phone ?? contactMap[c.id]?.phone ?? null,
       orderCount: c._count.orders,
       paidLifetimeValue: ltvMap[c.id] ?? 0, // paise
     }));

@@ -65,6 +65,13 @@ export class AssignmentsService {
         customer: {
           select: { id: true, fullName: true, email: true, phone: true },
         },
+        order: {
+          select: {
+            contactName: true,
+            contactPhone: true,
+            contactEmail: true,
+          },
+        },
         assignedEmployee: { select: { id: true, fullName: true, phone: true } },
       },
     });

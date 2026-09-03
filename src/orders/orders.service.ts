@@ -87,6 +87,28 @@ export class OrdersService {
       throw new BadRequestException('Sorry, we do not serve this pincode yet.');
     }
 
+    // Back-fill the customer's profile from checkout contact details when
+    // missing. OTP customers register with email only, so fullName/phone are
+    // otherwise never set — which breaks admin customer/booking views and LTV.
+    // Only fills blanks; never overwrites a name/phone the user already has.
+    const existing = await this.prisma.user.findUnique({
+      where: { id: customerId },
+      select: { fullName: true, phone: true },
+    });
+    const backfill: { fullName?: string; phone?: string } = {};
+    if (!existing?.fullName && input.contactName) {
+      backfill.fullName = input.contactName;
+    }
+    if (!existing?.phone && input.contactPhone) {
+      backfill.phone = input.contactPhone;
+    }
+    if (Object.keys(backfill).length > 0) {
+      await this.prisma.user.update({
+        where: { id: customerId },
+        data: backfill,
+      });
+    }
+
     // Load pricing settings once (GST rate + configurable fees).
     const pricing: PricingSettings = await this.settings.getPricing();
     // GST only applies when enabled; otherwise the effective rate is 0.
