@@ -5,10 +5,11 @@ import {
   ForbiddenException,
 } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
-import { PricingType } from '@prisma/client';
+import { PricingType, NotificationType } from '@prisma/client';
 import { PaymentsService } from '../payments/payments.service';
 import { SettingsService } from '../settings/settings.service';
 import { PricingSettings, ConfigurableFee } from '../settings/settings.types';
+import { NotificationsService } from '../notifications/notifications.service';
 
 export interface CheckoutItemInput {
   serviceId: string;
@@ -36,6 +37,7 @@ export class OrdersService {
     private prisma: PrismaService,
     private payments: PaymentsService,
     private settings: SettingsService,
+    private notifications: NotificationsService,
   ) {}
 
   /** Resolve a configurable fee to paise, given the service-charge base. */
@@ -277,6 +279,20 @@ export class OrdersService {
 
     const paymentInfo = await this.payments.initiatePayment(order.id);
     const fullOrder = await this.getOrderForCustomer(customerId, order.id);
+
+    // Notify ops that a new booking/order landed (best-effort, post-commit).
+    void this.notifyStaff({
+      type: 'BOOKING_RECEIVED',
+      title: 'New booking received',
+      body: `${input.contactName} placed order ${order.orderNumber} (₹${(totalAmount / 100).toFixed(2)}) for ${input.pincode}.`,
+      data: { orderId: order.id, orderNumber: order.orderNumber },
+      email: {
+        subject: `New booking ${order.orderNumber}`,
+        html: `<p>New order <strong>${order.orderNumber}</strong> from ${input.contactName} (${input.contactPhone}).</p><p>Total ₹${(totalAmount / 100).toFixed(2)} · ${input.pincode} · ${input.scheduledTimeWindow}</p>`,
+        text: `New order ${order.orderNumber} from ${input.contactName}. Total ₹${(totalAmount / 100).toFixed(2)}.`,
+      },
+    });
+
     return { order: fullOrder, payment: paymentInfo };
   }
 
@@ -310,5 +326,36 @@ export class OrdersService {
     const ts = Date.now().toString(36).toUpperCase();
     const rand = Math.random().toString(36).slice(2, 6).toUpperCase();
     return `${prefix}-${ts}${rand}`;
+  }
+
+  /** Fan out an in-app notification to every active ADMIN + SUPERVISOR. */
+  private async notifyStaff(msg: {
+    type: NotificationType;
+    title: string;
+    body: string;
+    data?: Record<string, unknown>;
+    email?: { subject: string; html: string; text: string };
+  }) {
+    const staff = await this.prisma.user.findMany({
+      where: { role: { in: ['ADMIN', 'SUPERVISOR'] }, status: 'active' },
+      select: { id: true, email: true },
+    });
+    // First recipient carries the email (BCC'd to the ops/CC address via
+    // settings); the rest get in-app only, so we don't spam every inbox.
+    let emailAttached = false;
+    for (const s of staff) {
+      void this.notifications.notify({
+        userId: s.id,
+        type: msg.type,
+        title: msg.title,
+        body: msg.body,
+        data: msg.data,
+        email:
+          !emailAttached && msg.email && s.email
+            ? { to: s.email, ...msg.email }
+            : undefined,
+      });
+      if (msg.email && s.email) emailAttached = true;
+    }
   }
 }

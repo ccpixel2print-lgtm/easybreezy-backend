@@ -12,6 +12,7 @@ import { MockProvider } from './providers/mock.provider';
 import { CodProvider } from './providers/cod.provider';
 import { PhonePeProvider } from './providers/phonepe.provider';
 import { WalletService } from '../wallet/wallet.service';
+import { NotificationsService } from '../notifications/notifications.service';
 
 @Injectable()
 export class PaymentsService {
@@ -22,6 +23,7 @@ export class PaymentsService {
     private config: ConfigService,
     private settings: SettingsService,
     private wallet: WalletService,
+    private notifications: NotificationsService,
   ) {
     // Register all known providers once. They are lightweight; gateway clients
     // inside them are constructed lazily on first real use.
@@ -216,10 +218,38 @@ export class PaymentsService {
         data: { status: 'CONFIRMED' },
       });
     });
-    return this.prisma.order.findUnique({
+
+    // Post-commit customer notification: payment received + booking confirmed.
+    const paid = await this.prisma.order.findUnique({
       where: { id: orderId },
-      include: { bookings: true, payments: true },
+      include: {
+        bookings: true,
+        payments: true,
+        customer: { select: { id: true, fullName: true, email: true } },
+      },
     });
+    if (!paid) {
+      throw new NotFoundException('Order not found after settlement.');
+    }
+
+    const amt = `₹${(paid.totalAmount / 100).toFixed(2)}`;
+    void this.notifications.notify({
+      userId: paid.customerId,
+      type: 'PAYMENT_RECEIVED',
+      title: 'Payment received',
+      body: `We've received your payment of ${amt} for order ${paid.orderNumber}. Your booking is confirmed.`,
+      data: { orderId: paid.id, orderNumber: paid.orderNumber },
+      email: paid.customer?.email
+        ? {
+            to: paid.customer.email,
+            subject: `Payment received — order ${paid.orderNumber}`,
+            html: `<div style="font-family:Arial,sans-serif;max-width:480px;margin:0 auto;padding:24px;color:#1f2937;"><h2 style="color:#0d9488;">Easy Breezy</h2><p>Hi ${paid.customer.fullName ?? 'there'},</p><p>We've received your payment of <strong>${amt}</strong> for order <strong>${paid.orderNumber}</strong>. Your booking is confirmed and we'll assign a technician shortly.</p></div>`,
+            text: `Hi ${paid.customer.fullName ?? 'there'}, we've received your payment of ${amt} for order ${paid.orderNumber}. Your booking is confirmed.`,
+          }
+        : undefined,
+    });
+
+    return paid;
   }
   private async confirmBookingsForOps(orderId: string) {
     // COD: bookings become CONFIRMED (enter ops), order paymentStatus stays PENDING.
@@ -317,6 +347,25 @@ export class PaymentsService {
       }
     });
 
+    // Notify the customer their order was cancelled/refunded (best-effort).
+    void this.notifications.notify({
+      userId: order.customerId,
+      type: 'BOOKING_CANCELLED',
+      title: wasPaid ? 'Order refunded' : 'Order cancelled',
+      body: wasPaid
+        ? `Your order ${order.orderNumber} has been cancelled and a refund has been initiated.${reason ? ` Reason: ${reason}.` : ''}`
+        : `Your order ${order.orderNumber} has been cancelled.${reason ? ` Reason: ${reason}.` : ''}`,
+      data: { orderId: order.id, orderNumber: order.orderNumber },
+      email: order.contactEmail
+        ? {
+            to: order.contactEmail,
+            subject: `Order ${order.orderNumber} ${wasPaid ? 'refunded' : 'cancelled'}`,
+            html: `<div style="font-family:Arial,sans-serif;max-width:480px;margin:0 auto;padding:24px;color:#1f2937;"><h2 style="color:#0d9488;">Easy Breezy</h2><p>Hi ${order.contactName},</p><p>Your order <strong>${order.orderNumber}</strong> has been ${wasPaid ? 'cancelled and a refund initiated' : 'cancelled'}.${reason ? ` Reason: ${reason}.` : ''}</p></div>`,
+            text: `Hi ${order.contactName}, your order ${order.orderNumber} has been ${wasPaid ? 'cancelled and refunded' : 'cancelled'}.`,
+          }
+        : undefined,
+    });
+
     return { ok: true };
   }
 
@@ -410,6 +459,26 @@ export class PaymentsService {
         where: { orderId: order.id, status: 'PENDING_PAYMENT' },
         data: { status: 'CANCELLED' },
       });
+    });
+
+    const cust = await this.prisma.user.findUnique({
+      where: { id: customerId },
+      select: { email: true, fullName: true },
+    });
+    void this.notifications.notify({
+      userId: customerId,
+      type: 'PAYMENT_CANCELLED',
+      title: 'Payment cancelled',
+      body: `Your pending payment for order ${order.orderNumber} was cancelled.`,
+      data: { orderId: order.id, orderNumber: order.orderNumber },
+      email: cust?.email
+        ? {
+            to: cust.email,
+            subject: `Payment cancelled — order ${order.orderNumber}`,
+            html: `<div style="font-family:Arial,sans-serif;max-width:480px;margin:0 auto;padding:24px;color:#1f2937;"><h2 style="color:#0d9488;">Easy Breezy</h2><p>Hi ${cust.fullName ?? 'there'},</p><p>Your pending payment for order <strong>${order.orderNumber}</strong> was cancelled. You can place a new booking anytime.</p></div>`,
+            text: `Hi ${cust.fullName ?? 'there'}, your pending payment for order ${order.orderNumber} was cancelled.`,
+          }
+        : undefined,
     });
 
     return { ok: true };

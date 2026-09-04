@@ -192,6 +192,15 @@ export class AssignmentsService {
         : undefined,
     });
 
+    // Also notify the assigned employee that they have a new job.
+    void this.notifications.notify({
+      userId: employeeId,
+      type: 'WORK_ASSIGNED',
+      title: 'New job assigned',
+      body: `You've been assigned ${updated.service.name} on ${when} (${updated.scheduledTimeWindow}).`,
+      data: { bookingId: updated.id, orderId: updated.orderId },
+    });
+
     return updated;
   }
 
@@ -267,7 +276,7 @@ export class AssignmentsService {
   // Terminal state. Status flip and wallet credit happen in ONE transaction:
   // either both commit or both roll back.
   async confirmCompletion(bookingId: string, actorId: string) {
-    return this.prisma.$transaction(async (tx) => {
+    const updated = await this.prisma.$transaction(async (tx) => {
       const booking = await tx.booking.findUnique({
         where: { id: bookingId },
         include: {
@@ -287,7 +296,7 @@ export class AssignmentsService {
         );
       }
 
-      const updated = await tx.booking.update({
+      const done = await tx.booking.update({
         where: { id: bookingId },
         data: {
           status: 'COMPLETED',
@@ -300,10 +309,10 @@ export class AssignmentsService {
             select: { id: true, fullName: true, phone: true },
           },
           service: { select: { name: true } },
+          customer: { select: { id: true, fullName: true, email: true } },
         },
       });
 
-      // Credit the employee's wallet in the SAME transaction (idempotent).
       await this.wallet.creditForCompletion(tx, {
         bookingId: booking.id,
         employeeId: booking.assignedEmployeeId,
@@ -311,8 +320,38 @@ export class AssignmentsService {
         serviceAmount: booking.serviceAmount,
       });
 
-      return updated;
+      return done;
     });
+
+    // Post-commit notifications (best-effort). `updated` is fully typed and
+    // non-null here — it's the resolved value of the transaction above.
+    void this.notifications.notify({
+      userId: updated.customerId,
+      type: 'WORK_COMPLETED',
+      title: 'Your service is complete',
+      body: `Your ${updated.service.name} booking has been completed. Thank you for choosing Easy Breezy!`,
+      data: { bookingId: updated.id, orderId: updated.orderId },
+      email: updated.customer?.email
+        ? {
+            to: updated.customer.email,
+            subject: 'Your Easy Breezy service is complete',
+            html: `<div style="font-family:Arial,sans-serif;max-width:480px;margin:0 auto;padding:24px;color:#1f2937;"><h2 style="color:#0d9488;">Easy Breezy</h2><p>Hi ${updated.customer.fullName ?? 'there'},</p><p>Your <strong>${updated.service.name}</strong> booking has been completed. We hope everything went well!</p></div>`,
+            text: `Hi ${updated.customer.fullName ?? 'there'}, your ${updated.service.name} booking is complete.`,
+          }
+        : undefined,
+    });
+
+    if (updated.assignedEmployeeId) {
+      void this.notifications.notify({
+        userId: updated.assignedEmployeeId,
+        type: 'JOB_COMPLETED',
+        title: 'Job completed',
+        body: `Your ${updated.service.name} job (${updated.bookingNumber}) was confirmed complete. Earnings have been credited to your wallet.`,
+        data: { bookingId: updated.id },
+      });
+    }
+
+    return updated;
   }
 
   // ---- Wallet: admin/supervisor read + write ----

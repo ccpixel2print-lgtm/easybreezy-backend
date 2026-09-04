@@ -5,15 +5,17 @@ import {
   ForbiddenException,
 } from '@nestjs/common';
 import { randomUUID } from 'crypto';
-import { Prisma, BookingStatus } from '@prisma/client';
+import { Prisma, BookingStatus, NotificationType } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { StorageService } from '../storage/storage.service';
+import { NotificationsService } from '../notifications/notifications.service';
 
 @Injectable()
 export class EmployeeService {
   constructor(
     private prisma: PrismaService,
     private storage: StorageService,
+    private notifications: NotificationsService,
   ) {}
 
   // ---- List jobs assigned to this employee ----
@@ -101,11 +103,20 @@ export class EmployeeService {
         `Only an ASSIGNED job can be accepted. This job is ${booking.status}.`,
       );
     }
-    return this.prisma.booking.update({
+    const updated = await this.prisma.booking.update({
       where: { id: bookingId },
       data: { status: 'ACCEPTED', acceptedAt: new Date() },
       select: { id: true, bookingNumber: true, status: true, acceptedAt: true },
     });
+
+    void this.notifyStaff({
+      type: 'EMPLOYEE_ACCEPTED',
+      title: 'Employee accepted a job',
+      body: `Job ${updated.bookingNumber} was accepted by the assigned employee.`,
+      data: { bookingId: updated.id },
+    });
+
+    return updated;
   }
 
   // ---- Reject a job: ASSIGNED -> REJECTED, then cleared back to CONFIRMED queue ----
@@ -116,8 +127,9 @@ export class EmployeeService {
         `Only an ASSIGNED job can be rejected. This job is ${booking.status}.`,
       );
     }
-    // Return the booking to the unassigned queue so a supervisor can reassign it.
-    return this.prisma.booking.update({
+    const trimmedReason = reason?.trim() || null;
+
+    const updated = await this.prisma.booking.update({
       where: { id: bookingId },
       data: {
         status: 'CONFIRMED',
@@ -126,10 +138,19 @@ export class EmployeeService {
         assignedAt: null,
         acceptedAt: null,
         rejectedAt: new Date(),
-        rejectionReason: reason?.trim() || null,
+        rejectionReason: trimmedReason,
       },
       select: { id: true, bookingNumber: true, status: true, rejectedAt: true },
     });
+
+    void this.notifyStaff({
+      type: 'EMPLOYEE_REJECTED',
+      title: 'Employee rejected a job',
+      body: `Job ${updated.bookingNumber} was rejected${trimmedReason ? ` (${trimmedReason})` : ''} and returned to the queue for reassignment.`,
+      data: { bookingId: updated.id },
+    });
+
+    return updated;
   }
 
   // ---- Start a job: ACCEPTED -> IN_PROGRESS ----
@@ -170,7 +191,7 @@ export class EmployeeService {
         : `[work done] ${notes.trim()}`;
     }
 
-    return this.prisma.booking.update({
+    const updated = await this.prisma.booking.update({
       where: { id: bookingId },
       data,
       select: {
@@ -181,6 +202,22 @@ export class EmployeeService {
         notes: true,
       },
     });
+
+    void this.notifyStaff({
+      type: 'WORK_DONE',
+      title: 'Work marked done — awaiting confirmation',
+      body: `Job ${updated.bookingNumber} is marked done and awaiting confirmation.`,
+      data: { bookingId: updated.id },
+    });
+    void this.notifications.notify({
+      userId: employeeId,
+      type: 'AWAITING_SUPERVISOR_CONFIRMATION',
+      title: 'Awaiting supervisor confirmation',
+      body: `You marked ${updated.bookingNumber} as done. It's now awaiting supervisor confirmation.`,
+      data: { bookingId: updated.id },
+    });
+
+    return updated;
   }
 
   // ---- Upload a before/after photo for a job the employee owns ----
@@ -228,5 +265,27 @@ export class EmployeeService {
       },
       select: { id: true, kind: true, url: true, createdAt: true },
     });
+  }
+
+  /** Fan out an in-app notification to every active ADMIN + SUPERVISOR. */
+  private async notifyStaff(msg: {
+    type: NotificationType;
+    title: string;
+    body: string;
+    data?: Record<string, unknown>;
+  }): Promise<void> {
+    const staff = await this.prisma.user.findMany({
+      where: { role: { in: ['ADMIN', 'SUPERVISOR'] }, status: 'active' },
+      select: { id: true },
+    });
+    for (const s of staff) {
+      void this.notifications.notify({
+        userId: s.id,
+        type: msg.type,
+        title: msg.title,
+        body: msg.body,
+        data: msg.data,
+      });
+    }
   }
 }

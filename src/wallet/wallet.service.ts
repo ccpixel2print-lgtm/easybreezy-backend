@@ -2,6 +2,7 @@ import { Injectable, BadRequestException } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { SettingsService } from '../settings/settings.service';
+import { NotificationsService } from '../notifications/notifications.service';
 
 // Prisma transaction client type — lets wallet writes enlist in a caller's
 // $transaction so credit + status-flip are atomic.
@@ -12,6 +13,7 @@ export class WalletService {
   constructor(
     private prisma: PrismaService,
     private settings: SettingsService,
+    private notifications: NotificationsService,
   ) {}
 
   /**
@@ -151,7 +153,8 @@ export class WalletService {
         `Payout (₹${(amount / 100).toFixed(2)}) exceeds wallet balance (₹${(balance / 100).toFixed(2)}).`,
       );
     }
-    return this.prisma.walletLedger.create({
+
+    const entry = await this.prisma.walletLedger.create({
       data: {
         employeeId,
         type: 'PAYOUT',
@@ -160,6 +163,29 @@ export class WalletService {
         createdById,
       },
     });
+
+    // Post-write employee notification (best-effort).
+    const emp = await this.prisma.user.findUnique({
+      where: { id: employeeId },
+      select: { fullName: true, email: true },
+    });
+    void this.notifications.notify({
+      userId: employeeId,
+      type: 'PAYOUT_RECEIVED',
+      title: 'Payout received',
+      body: `A payout of ₹${(amount / 100).toFixed(2)} has been recorded to your account.`,
+      data: { amount, ledgerId: entry.id },
+      email: emp?.email
+        ? {
+            to: emp.email,
+            subject: 'Easy Breezy — payout recorded',
+            html: `<div style="font-family:Arial,sans-serif;max-width:480px;margin:0 auto;padding:24px;color:#1f2937;"><h2 style="color:#0d9488;">Easy Breezy</h2><p>Hi ${emp.fullName ?? 'there'},</p><p>A payout of <strong>₹${(amount / 100).toFixed(2)}</strong> has been recorded to your account.</p></div>`,
+            text: `Hi ${emp.fullName ?? 'there'}, a payout of ₹${(amount / 100).toFixed(2)} has been recorded.`,
+          }
+        : undefined,
+    });
+
+    return entry;
   }
 
   /**
