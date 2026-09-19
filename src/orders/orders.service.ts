@@ -300,7 +300,17 @@ export class OrdersService {
     return this.prisma.order.findMany({
       where: { customerId },
       orderBy: { placedAt: 'desc' },
-      include: { bookings: true },
+      include: {
+        bookings: {
+          include: {
+            quotes: {
+              where: { status: { in: ['AWAITING_PAYMENT', 'PAID'] } },
+              orderBy: { createdAt: 'desc' },
+              include: { items: true },
+            },
+          },
+        },
+      },
     });
   }
 
