@@ -8,12 +8,14 @@ import { RolesGuard } from '../auth/roles.guard';
 import { StorageModule } from '../storage/storage.module';
 import { WalletModule } from '../wallet/wallet.module';
 import { NotificationsModule } from '../notifications/notifications.module';
+import { QuotesModule } from '../quotes/quotes.module';
 
 @Module({
   imports: [
     StorageModule,
     WalletModule,
     NotificationsModule,
+    QuotesModule,
     JwtModule.registerAsync({
       imports: [ConfigModule],
       inject: [ConfigService],

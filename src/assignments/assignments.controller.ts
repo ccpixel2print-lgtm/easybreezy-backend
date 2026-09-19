@@ -13,12 +13,17 @@ import { RolesGuard } from '../auth/roles.guard';
 import { Roles } from '../auth/roles.decorator';
 import { CurrentUser } from '../auth/current-user.decorator';
 import type { AssignBookingDto } from './assignments.dto';
+import { QuotesService } from '../quotes/quotes.service';
+import type { RaiseQuoteDto, EditQuoteDto } from '../quotes/quotes.dto';
 
 @UseGuards(JwtGuard, RolesGuard)
 @Roles('ADMIN', 'SUPERVISOR')
 @Controller('admin/bookings')
 export class AssignmentsController {
-  constructor(private assignments: AssignmentsService) {}
+  constructor(
+    private assignments: AssignmentsService,
+    private quotes: QuotesService,
+  ) {}
 
   @Get()
   list(
@@ -97,6 +102,42 @@ export class AssignmentsController {
     return this.assignments.setEmployeePayoutRate(
       employeeId,
       body.payoutRatePercent,
+    );
+  }
+
+  // Supervisor/admin raises an extra-work quote on behalf of the technician.
+  @Post('bookings/:id/quotes')
+  raiseQuote(
+    @CurrentUser() user: { id: string; role: 'ADMIN' | 'SUPERVISOR' },
+    @Param('id') bookingId: string,
+    @Body() body: RaiseQuoteDto,
+  ) {
+    return this.quotes.raiseQuote({
+      bookingId,
+      input: { items: body?.items },
+      actor: { id: user.id, role: 'SUPERVISOR' },
+    });
+  }
+
+  @Post('quotes/:quoteId/edit')
+  editQuote(
+    @CurrentUser() user: { id: string; role: 'ADMIN' | 'SUPERVISOR' },
+    @Param('quoteId') quoteId: string,
+    @Body() body: EditQuoteDto,
+  ) {
+    return this.quotes.editQuote({ id: user.id, role: 'SUPERVISOR' }, quoteId, {
+      items: body?.items,
+    });
+  }
+
+  @Post('quotes/:quoteId/cancel')
+  cancelQuote(
+    @CurrentUser() user: { id: string; role: 'ADMIN' | 'SUPERVISOR' },
+    @Param('quoteId') quoteId: string,
+  ) {
+    return this.quotes.cancelQuote(
+      { id: user.id, role: 'SUPERVISOR' },
+      quoteId,
     );
   }
 }

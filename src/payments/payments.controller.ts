@@ -37,11 +37,17 @@ export class PaymentsController {
 
   // PhonePe return page hits this to confirm real status (merchantOrderId == Order.id).
   @Get('phonepe/status')
-  phonepeStatus(@Query('orderId') orderId: string) {
+  async phonepeStatus(@Query('orderId') orderId: string) {
     if (!orderId) {
       throw new BadRequestException('orderId is required.');
     }
-    return this.paymentsService.verifyAndSettle(orderId);
+    // orderId here is the merchant id — could be an Order or a Quote.
+    const order = await this.paymentsService['prisma'].order.findUnique({
+      where: { id: orderId },
+      select: { id: true },
+    });
+    if (order) return this.paymentsService.verifyAndSettle(orderId);
+    return this.paymentsService.verifyAndSettleQuote(orderId);
   }
 
   // PhonePe server-to-server webhook. No JWT: authenticity is verified by
@@ -66,7 +72,7 @@ export class PaymentsController {
 
     // Acknowledge quickly and idempotently. Non-terminal events -> just ack.
     if (result && result.state === 'PAID') {
-      await this.paymentsService.markOrderPaid(result.merchantOrderId, {
+      await this.paymentsService.settleByMerchantId(result.merchantOrderId, {
         gatewayPaymentId: result.gatewayPaymentId,
       });
     }

@@ -262,6 +262,166 @@ export class PaymentsService {
       data: { status: 'PENDING_PAYMENT', paymentStatus: 'PENDING' },
     });
   }
+
+  /**
+   * Customer pays an extra-work quote. Mirrors initiatePayment but the
+   * gateway merchantOrderId is the QUOTE id, and the Payment row carries
+   * quoteId + type 'quote_balance'. Gateway-only (no COD) in v1.
+   */
+  async initiateQuotePayment(quoteId: string) {
+    const quote = await this.prisma.bookingQuote.findUnique({
+      where: { id: quoteId },
+    });
+    if (!quote) throw new NotFoundException('Quote not found.');
+    if (quote.status !== 'AWAITING_PAYMENT') {
+      throw new BadRequestException('This quote is not awaiting payment.');
+    }
+
+    const provider = await this.resolveActiveProvider();
+    // Reuse the opaque createPayment; the quote id is the merchant order id.
+    const result = await provider.createPayment(quote.id, quote.totalAmount);
+
+    const payment = await this.prisma.payment.create({
+      data: {
+        // NOTE: orderId is required on Payment. We link the parent order so the
+        // row is still queryable by order, and set quoteId to mark it a quote.
+        orderId: quote.parentOrderId!,
+        quoteId: quote.id,
+        provider: result.provider,
+        type: 'quote_balance',
+        amount: quote.totalAmount,
+        status: 'PENDING',
+        gatewayOrderId: result.gatewayOrderId ?? result.merchantOrderId ?? null,
+      },
+    });
+
+    // Point the quote at its current payment attempt.
+    await this.prisma.bookingQuote.update({
+      where: { id: quote.id },
+      data: { paymentId: payment.id },
+    });
+
+    return {
+      provider: result.provider,
+      confirmImmediately: result.confirmImmediately,
+      gatewayOrderId: result.gatewayOrderId ?? null,
+      redirectUrl: result.redirectUrl ?? null,
+      merchantOrderId: result.merchantOrderId ?? quote.id,
+      paymentId: payment.id,
+      quoteId: quote.id,
+      amount: quote.totalAmount,
+    };
+  }
+
+  /**
+   * Settle a paid quote. Idempotent: if already PAID, returns it unchanged.
+   * On success: quote -> PAID, its Payment -> PAID, booking -> IN_PROGRESS
+   * (so the technician can finish and mark work done), and notify the customer.
+   */
+  async markQuotePaid(quoteId: string, refs?: { gatewayPaymentId?: string }) {
+    const quote = await this.prisma.bookingQuote.findUnique({
+      where: { id: quoteId },
+      include: {
+        booking: {
+          select: { id: true, bookingNumber: true, customerId: true },
+        },
+      },
+    });
+    if (!quote) throw new NotFoundException('Quote not found.');
+    if (quote.status === 'PAID') return quote; // idempotent
+    if (quote.status !== 'AWAITING_PAYMENT') {
+      throw new BadRequestException('Quote is not awaiting payment.');
+    }
+
+    const updated = await this.prisma.$transaction(async (tx) => {
+      const q = await tx.bookingQuote.update({
+        where: { id: quoteId },
+        data: { status: 'PAID', paidAt: new Date() },
+        include: { items: true },
+      });
+
+      await tx.payment.updateMany({
+        where: { quoteId, status: 'PENDING' },
+        data: {
+          status: 'PAID',
+          paidAt: new Date(),
+          gatewayPaymentId: refs?.gatewayPaymentId ?? null,
+        },
+      });
+
+      // Extra work is now paid: return the job to IN_PROGRESS so the tech
+      // can complete it and mark work done.
+      await tx.booking.update({
+        where: { id: quote.booking.id },
+        data: { status: 'IN_PROGRESS' },
+      });
+
+      await this.notifications.notify(
+        {
+          userId: quote.booking.customerId,
+          type: 'QUOTE_PAID',
+          title: 'Extra work payment received',
+          body: `We've received ₹${(quote.totalAmount / 100).toFixed(2)} for extra work on booking ${quote.booking.bookingNumber}. Your technician will continue the work.`,
+          data: { bookingId: quote.booking.id, quoteId },
+        },
+        tx,
+      );
+
+      return q;
+    });
+
+    return updated;
+  }
+
+  /**
+   * The gateway merchantOrderId may be an Order id (normal checkout) or a
+   * Quote id (extra-work). Route to the right settler. Order is tried first
+   * so the original flow is completely unchanged.
+   */
+  async settleByMerchantId(
+    merchantId: string,
+    refs?: { gatewayPaymentId?: string },
+  ) {
+    const order = await this.prisma.order.findUnique({
+      where: { id: merchantId },
+      select: { id: true },
+    });
+    if (order) {
+      return this.markOrderPaid(merchantId, refs);
+    }
+    const quote = await this.prisma.bookingQuote.findUnique({
+      where: { id: merchantId },
+      select: { id: true },
+    });
+    if (quote) {
+      return this.markQuotePaid(merchantId, refs);
+    }
+    throw new NotFoundException('No order or quote matches this payment.');
+  }
+
+  /** Return-page settle for a quote (mirrors verifyAndSettle for orders). */
+  async verifyAndSettleQuote(quoteId: string) {
+    const quote = await this.prisma.bookingQuote.findUnique({
+      where: { id: quoteId },
+      select: { id: true, status: true },
+    });
+    if (!quote) throw new NotFoundException('Quote not found.');
+    if (quote.status === 'PAID') return this.markQuotePaid(quoteId); // idempotent no-op
+
+    const provider = await this.resolveActiveProvider();
+    if (!provider.verifyPayment) {
+      throw new BadRequestException('Active provider cannot verify payments.');
+    }
+    const res = await provider.verifyPayment(quoteId);
+    if (res.state === 'PAID') {
+      return this.markQuotePaid(quoteId, {
+        gatewayPaymentId: res.gatewayPaymentId,
+      });
+    }
+    // PENDING/FAILED: return current quote unchanged.
+    return quote;
+  }
+
   /**
    * Admin-triggered order-level full refund / cancellation.
    * - Order.paymentStatus -> REFUNDED (if it was PAID) else the order is just cancelled

@@ -18,6 +18,8 @@ import { Roles } from '../auth/roles.decorator';
 import { CurrentUser } from '../auth/current-user.decorator';
 import type { RejectJobDto, WorkDoneDto } from './employee.dto';
 import { WalletService } from '../wallet/wallet.service';
+import { QuotesService } from '../quotes/quotes.service';
+import type { RaiseQuoteDto, EditQuoteDto } from '../quotes/quotes.dto';
 
 @UseGuards(JwtGuard, RolesGuard)
 @Roles('EMPLOYEE')
@@ -26,6 +28,7 @@ export class EmployeeController {
   constructor(
     private employee: EmployeeService,
     private wallet: WalletService,
+    private quotes: QuotesService,
   ) {}
 
   @Get()
@@ -95,5 +98,38 @@ export class EmployeeController {
     }
     if (!file) throw new BadRequestException('No file was uploaded.');
     return this.employee.uploadPhoto(user.id, id, k, file);
+  }
+
+  // Technician raises an extra-work quote on their own job.
+  @Post(':id/quotes')
+  raiseQuote(
+    @CurrentUser() user: { id: string },
+    @Param('id') bookingId: string,
+    @Body() body: RaiseQuoteDto,
+  ) {
+    return this.quotes.raiseQuote({
+      bookingId,
+      input: { items: body?.items },
+      actor: { id: user.id, role: 'EMPLOYEE' },
+    });
+  }
+
+  @Post('quotes/:quoteId/edit')
+  editQuote(
+    @CurrentUser() user: { id: string },
+    @Param('quoteId') quoteId: string,
+    @Body() body: EditQuoteDto,
+  ) {
+    return this.quotes.editQuote({ id: user.id, role: 'EMPLOYEE' }, quoteId, {
+      items: body?.items,
+    });
+  }
+
+  @Post('quotes/:quoteId/cancel')
+  cancelQuote(
+    @CurrentUser() user: { id: string },
+    @Param('quoteId') quoteId: string,
+  ) {
+    return this.quotes.cancelQuote({ id: user.id, role: 'EMPLOYEE' }, quoteId);
   }
 }

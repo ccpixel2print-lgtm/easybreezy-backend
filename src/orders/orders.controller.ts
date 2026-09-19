@@ -4,6 +4,7 @@ import type { CheckoutInput } from './orders.service';
 import { JwtGuard } from '../auth/jwt.guard';
 import { CurrentUser } from '../auth/current-user.decorator';
 import { PaymentsService } from '../payments/payments.service';
+import { QuotesService } from '../quotes/quotes.service';
 
 @UseGuards(JwtGuard)
 @Controller('me')
@@ -11,6 +12,7 @@ export class OrdersController {
   constructor(
     private ordersService: OrdersService,
     private payments: PaymentsService,
+    private quotes: QuotesService,
   ) {}
 
   @Post('checkout')
@@ -36,5 +38,14 @@ export class OrdersController {
   @Post('orders/:id/cancel')
   cancelOrder(@CurrentUser() user: { id: string }, @Param('id') id: string) {
     return this.payments.cancelUnpaidOrder(user.id, id);
+  }
+
+  // Customer initiates payment for an extra-work quote.
+  @Post('quotes/:quoteId/pay')
+  payQuote(
+    @CurrentUser() user: { id: string },
+    @Param('quoteId') quoteId: string,
+  ) {
+    return this.quotes.payQuote(user.id, quoteId);
   }
 }

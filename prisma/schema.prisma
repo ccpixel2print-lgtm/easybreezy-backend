@@ -243,6 +243,7 @@ model Booking {
   customer           User          @relation(fields: [customerId], references: [id])
   service            Service       @relation(fields: [serviceId], references: [id])
   subService         SubService?   @relation(fields: [subServiceId], references: [id])
+  quotes  BookingQuote[]
 
   @@index([orderId])
   @@index([customerId])
@@ -329,7 +330,8 @@ model Payment {
   gatewayOrderId    String?
   gatewayPaymentId  String?
   gatewaySignature  String?
-
+  quoteId           String?
+  
   paidAt            DateTime?
   createdAt         DateTime      @default(now())
   updatedAt         DateTime      @updatedAt
@@ -345,6 +347,65 @@ enum PaymentStatus {
   FAILED
   REFUNDED
   PARTIALLY_REFUNDED
+}
+
+enum QuoteStatus {
+  DRAFT              // reserved for future multi-quote drafting; unused in v1
+  AWAITING_PAYMENT   // raised, customer must pay
+  PAID               // balance settled
+  CANCELLED          // closed by staff, or superseded by an edit/re-issue
+}
+
+enum QuoteRaisedByType {
+  EMPLOYEE
+  SUPERVISOR         // covers ADMIN + SUPERVISOR staff-side raises
+}
+
+model BookingQuote {
+  id                   String            @id @default(uuid())
+  bookingId            String
+  quoteNumber          String            @unique   // human-readable, e.g. Q-2026-000123
+  status               QuoteStatus       @default(AWAITING_PAYMENT)
+
+  raisedByType         QuoteRaisedByType
+  raisedById           String                       // the User who created it (tech, supervisor, or admin)
+  onBehalfOfEmployeeId String?                       // set when a supervisor/admin raises for a tech
+
+  // money (paise)
+  subtotal             Int               @default(0)
+  gstRate              Int               @default(0) // basis points at time of raise, e.g. 1800 = 18%. 0 when GST disabled
+  taxAmount            Int               @default(0)
+  totalAmount          Int               @default(0)
+
+  paymentId            String?           // the current gateway attempt for this quote
+  parentOrderId        String?   // the Order this booking belongs to; set at raise time for GST/reporting joins
+
+  createdAt            DateTime          @default(now())
+  updatedAt            DateTime          @updatedAt
+  paidAt               DateTime?
+  cancelledAt          DateTime?
+
+  booking              Booking           @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+  items                QuoteItem[]
+
+  @@index([bookingId, status])
+  @@index([quoteNumber])
+  @@index([parentOrderId])
+}
+
+model QuoteItem {
+  id          String   @id @default(uuid())
+  quoteId     String
+  name        String
+  description String?
+  amount      Int                    // paise, unit price
+  quantity    Int      @default(1)
+  lineTotal   Int                    // paise = amount * quantity, stored for audit
+  createdAt   DateTime @default(now())
+
+  quote       BookingQuote @relation(fields: [quoteId], references: [id], onDelete: Cascade)
+
+  @@index([quoteId])
 }
 
 model AppSetting {
@@ -373,6 +434,12 @@ enum NotificationType {
   EMPLOYEE_REJECTED
   WORK_DONE
   BOOKING_RECEIVED
+  // Quote (extra work) — customer
+  QUOTE_RAISED
+  QUOTE_CANCELLED
+  QUOTE_PAID
+  // Quote (extra work) — staff
+  QUOTE_RAISED_STAFF
 }
 
 model Notification {

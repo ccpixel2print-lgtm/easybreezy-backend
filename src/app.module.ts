@@ -16,6 +16,7 @@ import { AdminDashboardModule } from './admin-dashboard/admin-dashboard.module';
 import { CatalogAdminModule } from './catalog-admin/catalog-admin.module';
 import { SettingsModule } from './settings/settings.module';
 import { NotificationsModule } from './notifications/notifications.module';
+import { QuotesModule } from './quotes/quotes.module';
 
 @Module({
   imports: [
@@ -34,6 +35,7 @@ import { NotificationsModule } from './notifications/notifications.module';
     CatalogAdminModule,
     SettingsModule,
     NotificationsModule,
+    QuotesModule,
   ],
   controllers: [AppController],
   providers: [AppService],

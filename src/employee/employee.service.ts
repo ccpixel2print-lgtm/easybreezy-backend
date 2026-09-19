@@ -185,6 +185,16 @@ export class EmployeeService {
       status: 'AWAITING_CONFIRMATION',
       workDoneAt: new Date(),
     };
+
+    const openQuote = await this.prisma.bookingQuote.count({
+      where: { bookingId, status: { in: ['DRAFT', 'AWAITING_PAYMENT'] } },
+    });
+    if (openQuote > 0) {
+      throw new BadRequestException(
+        'Cannot mark work done: an extra-work quote is awaiting customer payment.',
+      );
+    }
+
     if (notes !== undefined && notes.trim()) {
       data.notes = booking.notes
         ? `${booking.notes}\n[work done] ${notes.trim()}`

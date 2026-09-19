@@ -6,6 +6,7 @@ import { OrdersController } from './orders.controller';
 import { PaymentsModule } from '../payments/payments.module';
 import { SettingsModule } from '../settings/settings.module';
 import { NotificationsModule } from '../notifications/notifications.module';
+import { QuotesModule } from '../quotes/quotes.module';
 
 @Module({
   imports: [
@@ -19,6 +20,7 @@ import { NotificationsModule } from '../notifications/notifications.module';
     PaymentsModule,
     SettingsModule,
     NotificationsModule,
+    QuotesModule,
   ],
   controllers: [OrdersController],
   providers: [OrdersService],
