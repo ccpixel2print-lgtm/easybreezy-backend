@@ -91,6 +91,30 @@ export class EmployeeService {
         service: { select: { name: true } },
         subService: { select: { name: true } },
         order: { select: { orderNumber: true } },
+        quotes: {
+          where: { status: { in: ['AWAITING_PAYMENT', 'PAID'] } },
+          orderBy: { createdAt: 'desc' },
+          select: {
+            id: true,
+            quoteNumber: true,
+            status: true,
+            subtotal: true,
+            gstRate: true,
+            taxAmount: true,
+            totalAmount: true,
+            createdAt: true,
+            items: {
+              select: {
+                id: true,
+                name: true,
+                description: true,
+                amount: true,
+                quantity: true,
+                lineTotal: true,
+              },
+            },
+          },
+        },
       },
     });
   }

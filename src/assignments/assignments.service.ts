@@ -95,6 +95,11 @@ export class AssignmentsService {
           select: { id: true, kind: true, url: true, createdAt: true },
           orderBy: { createdAt: 'asc' },
         },
+        quotes: {
+          where: { status: { in: ['AWAITING_PAYMENT', 'PAID'] } },
+          orderBy: { createdAt: 'desc' },
+          include: { items: true },
+        },
       },
     });
     if (!booking) throw new NotFoundException('Booking not found.');
